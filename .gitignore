@@ -27,3 +27,6 @@ config/config.yaml
 !config/config.example.yaml
 docker-compose.yaml
 !docker-compose.example.yaml
+
+# Claude Code local settings (may contain IPs/paths)
+.claude/

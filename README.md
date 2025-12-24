@@ -1,11 +1,16 @@
 # Intellichem2MQTT
 
+[![Build and Publish Docker Image](https://github.com/agrieco/Intellichem2MQTT/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/agrieco/Intellichem2MQTT/actions/workflows/docker-publish.yml)
+
 A Python application that reads data from Pentair IntelliChem pool chemistry controllers via RS-485 and publishes to MQTT with Home Assistant auto-discovery support.
 
 ## Features
 
 - **RS-485 Communication**: Direct communication with IntelliChem via USB-to-RS485 adapter
 - **Home Assistant Integration**: MQTT Discovery for automatic entity creation
+- **Docker Support**: Pre-built multi-architecture images (amd64, arm64, arm/v7)
+- **Environment Variable Config**: No config file needed for Docker deployments
+- **Log-Only Mode**: Test without MQTT broker configured
 - **Comprehensive Monitoring**:
   - pH level and setpoint
   - ORP level and setpoint
@@ -17,116 +22,117 @@ A Python application that reads data from Pentair IntelliChem pool chemistry con
   - Salt level (if IntelliChlor present)
   - Alarms and warnings
   - Firmware version
-- **Async Architecture**: Non-blocking I/O for reliable operation
-- **Systemd Service**: Run as a background service on Raspberry Pi
 
-## Requirements
+## Quick Start (Docker)
+
+The easiest way to run Intellichem2MQTT is with Docker.
+
+### 1. Pull the Image
+
+```bash
+docker pull ghcr.io/agrieco/intellichem2mqtt:latest
+```
+
+### 2. Create docker-compose.yaml
+
+```yaml
+services:
+  intellichem2mqtt:
+    image: ghcr.io/agrieco/intellichem2mqtt:latest
+    container_name: intellichem2mqtt
+    restart: unless-stopped
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    environment:
+      - SERIAL_PORT=/dev/ttyUSB0
+      - MQTT_HOST=192.168.1.100        # Your MQTT broker IP
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=your-username     # Optional
+      - MQTT_PASSWORD=your-password     # Optional
+      - INTELLICHEM_POLL_INTERVAL=60   # Poll every 60 seconds
+      - LOG_LEVEL=INFO
+      - TZ=America/New_York
+```
+
+### 3. Run
+
+```bash
+docker compose up -d
+docker logs -f intellichem2mqtt
+```
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MQTT_HOST` | Yes* | - | MQTT broker hostname/IP |
+| `MQTT_PORT` | No | 1883 | MQTT broker port |
+| `MQTT_USERNAME` | No | - | MQTT username |
+| `MQTT_PASSWORD` | No | - | MQTT password |
+| `SERIAL_PORT` | No | /dev/ttyUSB0 | Serial device path |
+| `INTELLICHEM_ADDRESS` | No | 144 | IntelliChem address (144-158) |
+| `INTELLICHEM_POLL_INTERVAL` | No | 60 | Poll interval in seconds |
+| `INTELLICHEM_TIMEOUT` | No | 5 | Response timeout in seconds |
+| `LOG_LEVEL` | No | INFO | DEBUG, INFO, WARNING, ERROR |
+
+*If `MQTT_HOST` is not set, runs in **log-only mode** (useful for testing).
+
+## Log Output
+
+```
+2025-12-24 08:06:45 - Starting poll loop (interval=60s)
+2025-12-24 08:06:46 - pH=7.00 ORP=585.0mV T=77°F LSI=-0.64 flow=Y
+```
+
+## Manual Installation
+
+### Requirements
 
 - Python 3.9+
 - USB-to-RS485 adapter connected to IntelliChem
 - MQTT broker (e.g., Home Assistant's built-in broker)
 - Raspberry Pi or Linux system
 
-## Installation
-
-### 1. Clone the Repository
+### Install from Source
 
 ```bash
-cd /opt
-sudo git clone https://github.com/yourusername/intellichem2mqtt.git
-sudo chown -R $USER:$USER intellichem2mqtt
-cd intellichem2mqtt
-```
+# Clone repository
+git clone https://github.com/agrieco/Intellichem2MQTT.git
+cd Intellichem2MQTT
 
-### 2. Create Virtual Environment
-
-```bash
+# Create virtual environment
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# Create configuration
+cp config/config.example.yaml config.yaml
+nano config.yaml  # Edit with your settings
+
+# Run
+python -m intellichem2mqtt -c config.yaml
 ```
 
-### 3. Configure
+### Run as Systemd Service
 
 ```bash
-# Create config directory
-sudo mkdir -p /etc/intellichem2mqtt
-
-# Copy and edit configuration
-sudo cp config/config.example.yaml /etc/intellichem2mqtt/config.yaml
-sudo nano /etc/intellichem2mqtt/config.yaml
-```
-
-Edit the configuration file to match your setup:
-- Set your serial port (usually `/dev/ttyUSB0`)
-- Set your MQTT broker hostname/IP
-- Set MQTT credentials if required
-
-### 4. Add User to dialout Group
-
-```bash
-sudo usermod -a -G dialout $USER
-# Log out and back in for changes to take effect
-```
-
-### 5. Test the Application
-
-```bash
-# Activate virtual environment
-source /opt/intellichem2mqtt/venv/bin/activate
-
-# Run the application
-python -m intellichem2mqtt -c /etc/intellichem2mqtt/config.yaml
-```
-
-### 6. Install as a Service
-
-```bash
-# Copy service file
+# Copy and edit service file
 sudo cp systemd/intellichem2mqtt.service /etc/systemd/system/
-
-# Edit service file if needed (change user, paths)
 sudo nano /etc/systemd/system/intellichem2mqtt.service
 
-# Enable and start service
+# Enable and start
 sudo systemctl daemon-reload
 sudo systemctl enable intellichem2mqtt
 sudo systemctl start intellichem2mqtt
 
 # Check status
 sudo systemctl status intellichem2mqtt
-```
-
-## Configuration
-
-### Serial Port
-
-The IntelliChem communicates via RS-485 at 9600 baud. Common serial port paths:
-
-- USB adapter: `/dev/ttyUSB0`
-- Raspberry Pi GPIO: `/dev/ttyAMA0` or `/dev/serial0`
-
-### IntelliChem Address
-
-Most installations have a single IntelliChem at address 144. If you have multiple units, they use addresses 144-158.
-
-### MQTT Topics
-
-State topics are published under the configured prefix:
-
-```
-intellichem2mqtt/intellichem/status          # Full JSON state
-intellichem2mqtt/intellichem/ph/level
-intellichem2mqtt/intellichem/ph/setpoint
-intellichem2mqtt/intellichem/orp/level
-intellichem2mqtt/intellichem/orp/setpoint
-intellichem2mqtt/intellichem/temperature
-...
+sudo journalctl -u intellichem2mqtt -f
 ```
 
 ## Home Assistant
 
-Entities are automatically discovered via MQTT. After starting the service, you should see a new "IntelliChem" device in Home Assistant with sensors for all monitored values.
+Entities are automatically discovered via MQTT. After starting the service, you'll see an "IntelliChem" device in Home Assistant.
 
 ### Entities Created
 
@@ -144,39 +150,17 @@ Entities are automatically discovered via MQTT. After starting the service, you 
 - pH Lockout, pH/ORP Daily Limits
 - pH Dosing, ORP Dosing
 
-## Troubleshooting
+### MQTT Topics
 
-### Check Logs
-
-```bash
-# View service logs
-sudo journalctl -u intellichem2mqtt -f
-
-# Enable debug logging
-# Edit config.yaml and set logging.level to DEBUG
 ```
-
-### Serial Port Issues
-
-```bash
-# Check if port exists
-ls -la /dev/ttyUSB*
-
-# Check permissions
-groups $USER  # Should include 'dialout'
-
-# Test serial port
-python -c "import serial; s = serial.Serial('/dev/ttyUSB0', 9600); print('OK')"
-```
-
-### MQTT Issues
-
-```bash
-# Test MQTT connection
-mosquitto_sub -h homeassistant.local -t "intellichem2mqtt/#" -v
-
-# Check broker connectivity
-mosquitto_pub -h homeassistant.local -t "test" -m "hello"
+intellichem2mqtt/intellichem/ph/level
+intellichem2mqtt/intellichem/ph/setpoint
+intellichem2mqtt/intellichem/orp/level
+intellichem2mqtt/intellichem/orp/setpoint
+intellichem2mqtt/intellichem/temperature
+intellichem2mqtt/intellichem/lsi
+intellichem2mqtt/intellichem/availability
+...
 ```
 
 ## Hardware Setup
@@ -185,16 +169,65 @@ mosquitto_pub -h homeassistant.local -t "test" -m "hello"
 
 Connect your USB-to-RS485 adapter to the IntelliChem:
 
-1. **A+ (Data+)**: Connect to IntelliChem RS-485 A+
-2. **B- (Data-)**: Connect to IntelliChem RS-485 B-
-3. **GND**: Connect to IntelliChem Ground (recommended)
+| Adapter | IntelliChem |
+|---------|-------------|
+| A+ (Data+) | RS-485 A+ |
+| B- (Data-) | RS-485 B- |
+| GND | Ground (recommended) |
 
-The RS-485 connection is typically found on the IntelliChem's communication port, shared with the pool controller connection.
+**Note:** If communication fails, try swapping A+ and B- wires.
 
 ### Recommended Adapters
 
-- FTDI-based USB-to-RS485 adapters
+- FTDI-based USB-to-RS485 adapters (most reliable)
 - CH340-based adapters (ensure drivers are installed)
+
+### IntelliChem Address
+
+Most installations have a single IntelliChem at address **144**. Multiple units use addresses 144-158.
+
+## Troubleshooting
+
+### No Response from IntelliChem
+
+1. **Check wiring**: Try swapping A+ and B- wires
+2. **Verify power**: Ensure IntelliChem is powered on
+3. **Check serial port**: `ls -la /dev/ttyUSB*`
+4. **Test permissions**: User must be in `dialout` group
+
+### Serial Port Issues
+
+```bash
+# Check port exists
+ls -la /dev/ttyUSB*
+
+# Check group membership
+groups $USER  # Should include 'dialout'
+
+# Add user to dialout group
+sudo usermod -a -G dialout $USER
+# Log out and back in
+```
+
+### Docker Serial Port Access
+
+```bash
+# Find your serial device
+ls -la /dev/ttyUSB*
+
+# Run with correct device
+docker run --device=/dev/ttyUSB0:/dev/ttyUSB0 ...
+```
+
+### View Logs
+
+```bash
+# Docker
+docker logs intellichem2mqtt -f
+
+# Systemd
+sudo journalctl -u intellichem2mqtt -f
+```
 
 ## Protocol Information
 
@@ -206,11 +239,26 @@ This application implements the Pentair IntelliChem RS-485 protocol:
 - **Status Request**: Action 210
 - **Status Response**: Action 18 (41-byte payload)
 
-The protocol was reverse-engineered from the [nodejs-poolController](https://github.com/tagyoureit/nodejs-poolController) project.
+## Building Docker Image Locally
+
+```bash
+# Build for current architecture
+docker build -t intellichem2mqtt .
+
+# Build for Raspberry Pi (from x86)
+docker buildx build --platform linux/arm/v7 -t intellichem2mqtt .
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
