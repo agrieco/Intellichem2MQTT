@@ -74,21 +74,28 @@ class IntelliChem2MQTT:
         self._stats["start_time"] = datetime.now()
         self.running = True
 
+        # Check if MQTT is enabled
+        self._mqtt_enabled = self.config.mqtt.enabled
+        if not self._mqtt_enabled:
+            logger.info("MQTT not configured - running in LOG-ONLY mode")
+            logger.info("Set MQTT_HOST environment variable to enable MQTT publishing")
+
         # Set up signal handlers
         self._setup_signal_handlers()
 
         try:
-            # Initialize MQTT connection
-            self.mqtt = MQTTClient(self.config.mqtt)
-            await self.mqtt.connect()
-            await self.mqtt.publish_availability("online")
+            # Initialize MQTT connection (if enabled)
+            if self._mqtt_enabled:
+                self.mqtt = MQTTClient(self.config.mqtt)
+                await self.mqtt.connect()
+                await self.mqtt.publish_availability("online")
 
-            # Initialize discovery and publish configs
-            self.discovery = DiscoveryManager(self.mqtt, self.config.mqtt)
-            await self.discovery.publish_discovery_configs()
+                # Initialize discovery and publish configs
+                self.discovery = DiscoveryManager(self.mqtt, self.config.mqtt)
+                await self.discovery.publish_discovery_configs()
 
-            # Initialize state publisher
-            self.publisher = StatePublisher(self.mqtt, self.config.mqtt)
+                # Initialize state publisher
+                self.publisher = StatePublisher(self.mqtt, self.config.mqtt)
 
             # Initialize serial connection
             self.serial = RS485Connection(self.config.serial)
@@ -138,21 +145,26 @@ class IntelliChem2MQTT:
                     state = self.parser.parse(response)
 
                     if state:
-                        # Publish to MQTT
-                        await self.publisher.publish_state(state)
                         self._stats["successful_polls"] += 1
                         self._stats["last_success"] = datetime.now()
 
-                        # If we were in comms lost state, notify recovery
-                        if was_comms_lost:
-                            await self.publisher.publish_comms_restored()
-                            was_comms_lost = False
+                        if self._mqtt_enabled:
+                            # Publish to MQTT
+                            await self.publisher.publish_state(state)
 
-                        logger.debug(
-                            f"pH={state.ph.level:.2f}, "
-                            f"ORP={state.orp.level}mV, "
-                            f"temp={state.temperature}°F"
-                        )
+                            # If we were in comms lost state, notify recovery
+                            if was_comms_lost:
+                                await self.publisher.publish_comms_restored()
+                                was_comms_lost = False
+
+                            logger.debug(
+                                f"pH={state.ph.level:.2f}, "
+                                f"ORP={state.orp.level}mV, "
+                                f"temp={state.temperature}°F"
+                            )
+                        else:
+                            # Log-only mode - print values to console
+                            self._log_state(state)
                     else:
                         logger.warning("Failed to parse status response")
                         self._stats["failed_polls"] += 1
@@ -163,7 +175,7 @@ class IntelliChem2MQTT:
                     )
                     self._stats["failed_polls"] += 1
 
-                    if not was_comms_lost:
+                    if self._mqtt_enabled and not was_comms_lost:
                         await self.publisher.publish_comms_error()
                         was_comms_lost = True
 
@@ -224,6 +236,28 @@ class IntelliChem2MQTT:
 
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+
+    def _log_state(self, state) -> None:
+        """Log IntelliChem state to console (log-only mode)."""
+        logger.info("=" * 60)
+        logger.info("IntelliChem Status (LOG-ONLY MODE)")
+        logger.info("=" * 60)
+        logger.info(f"  pH Level:      {state.ph.level:.2f} (setpoint: {state.ph.setpoint:.1f})")
+        logger.info(f"  ORP Level:     {state.orp.level} mV (setpoint: {state.orp.setpoint})")
+        logger.info(f"  Temperature:   {state.temperature}°F")
+        logger.info(f"  LSI:           {state.lsi:.2f}")
+        logger.info(f"  Salt Level:    {state.salt_level} ppm")
+        logger.info(f"  Alkalinity:    {state.alkalinity} ppm")
+        logger.info(f"  Calcium:       {state.calcium_hardness} ppm")
+        logger.info(f"  Cyanuric Acid: {state.cyanuric_acid} ppm")
+        logger.info(f"  Flow Detected: {state.flow_detected}")
+        logger.info(f"  pH Tank:       {state.ph.tank_level}% ({state.ph.dosing_status})")
+        logger.info(f"  ORP Tank:      {state.orp.tank_level}% ({state.orp.dosing_status})")
+        if state.alarms.any_active:
+            logger.warning(f"  ALARMS:        Flow={state.alarms.flow}, "
+                          f"pH Tank={state.alarms.ph_tank_empty}, "
+                          f"ORP Tank={state.alarms.orp_tank_empty}")
+        logger.info("=" * 60)
 
     @property
     def stats(self) -> dict:

@@ -14,7 +14,7 @@ from pathlib import Path
 
 from . import __version__
 from .app import run_app
-from .config import create_default_config, print_env_help, get_config
+from .config import create_default_config, print_env_help
 
 
 def main() -> int:
@@ -75,10 +75,10 @@ For more information, see: https://github.com/yourusername/intellichem2mqtt
 
     # Determine configuration source
     config_path = args.config
-    using_env = os.environ.get("MQTT_HOST") is not None
+    mqtt_host = os.environ.get("MQTT_HOST")
 
-    # If no config file specified and no env vars, check default location
-    if not config_path and not using_env:
+    # If no config file specified, check default locations
+    if not config_path:
         default_paths = [
             "/etc/intellichem2mqtt/config.yaml",
             "/config/config.yaml",  # Docker default
@@ -89,21 +89,14 @@ For more information, see: https://github.com/yourusername/intellichem2mqtt
                 config_path = path
                 break
 
-    # Validate we have some configuration
-    if not config_path and not using_env:
-        print("Error: No configuration found.", file=sys.stderr)
-        print("\nOptions:", file=sys.stderr)
-        print("  1. Set MQTT_HOST environment variable (and other env vars)", file=sys.stderr)
-        print("  2. Create a config file: intellichem2mqtt --generate-config > config.yaml", file=sys.stderr)
-        print("  3. Specify config path: intellichem2mqtt -c /path/to/config.yaml", file=sys.stderr)
-        print("\nFor environment variable help: intellichem2mqtt --env-help", file=sys.stderr)
-        return 1
-
     # Log configuration source
-    if using_env:
-        print(f"Using environment variable configuration (MQTT_HOST={os.environ.get('MQTT_HOST')})")
-    elif config_path:
+    if config_path:
         print(f"Using configuration file: {config_path}")
+    elif mqtt_host:
+        print(f"Using environment variable configuration (MQTT_HOST={mqtt_host})")
+    else:
+        print("No MQTT_HOST configured - running in LOG-ONLY mode")
+        print("Set MQTT_HOST environment variable to enable MQTT publishing")
 
     # Run the application
     try:

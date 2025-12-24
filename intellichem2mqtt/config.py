@@ -73,9 +73,9 @@ class IntelliChemConfig(BaseModel):
 class MQTTConfig(BaseModel):
     """MQTT broker configuration."""
 
-    host: str = Field(
-        default="localhost",
-        description="MQTT broker hostname or IP"
+    host: Optional[str] = Field(
+        default=None,
+        description="MQTT broker hostname or IP (None = log-only mode)"
     )
     port: int = Field(
         default=1883,
@@ -114,13 +114,18 @@ class MQTTConfig(BaseModel):
         description="MQTT QoS level"
     )
 
-    @field_validator("username", "password", mode="before")
+    @field_validator("host", "username", "password", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
         """Convert empty strings to None."""
         if v == "":
             return None
         return v
+
+    @property
+    def enabled(self) -> bool:
+        """Check if MQTT is enabled (host is configured)."""
+        return self.host is not None
 
 
 class LoggingConfig(BaseModel):
@@ -204,11 +209,11 @@ def _get_env_value(env_var: str, mapping: tuple):
     return value
 
 
-def load_config_from_env() -> Optional[AppConfig]:
+def load_config_from_env() -> AppConfig:
     """Load configuration from environment variables.
 
     Returns:
-        AppConfig if any env vars are set, None otherwise
+        AppConfig with values from environment (or defaults)
     """
     config_dict = {
         "serial": {},
@@ -217,21 +222,14 @@ def load_config_from_env() -> Optional[AppConfig]:
         "logging": {},
     }
 
-    found_any = False
-
     for env_var, mapping in ENV_MAPPING.items():
         value = _get_env_value(env_var, mapping)
         if value is not None:
             section = mapping[0]
             key = mapping[1]
             config_dict[section][key] = value
-            found_any = True
 
-    # Check for required MQTT_HOST to determine if env config is being used
-    if os.environ.get("MQTT_HOST"):
-        return AppConfig(**config_dict)
-
-    return None if not found_any else AppConfig(**config_dict)
+    return AppConfig(**config_dict)
 
 
 def load_config(config_path: str) -> AppConfig:
@@ -262,12 +260,12 @@ def load_config(config_path: str) -> AppConfig:
 
 
 def get_config(config_path: Optional[str] = None) -> AppConfig:
-    """Get configuration from environment variables or config file.
+    """Get configuration from config file or environment variables.
 
     Priority:
-    1. Environment variables (if MQTT_HOST is set)
-    2. Config file (if path provided and file exists)
-    3. Default values
+    1. Config file (if path provided and file exists)
+    2. Environment variables
+    3. Default values (log-only mode if no MQTT_HOST)
 
     Args:
         config_path: Optional path to YAML config file
@@ -275,23 +273,14 @@ def get_config(config_path: Optional[str] = None) -> AppConfig:
     Returns:
         Validated AppConfig instance
     """
-    # Try environment variables first
-    env_config = load_config_from_env()
-    if env_config and os.environ.get("MQTT_HOST"):
-        return env_config
-
-    # Try config file
+    # Try config file first
     if config_path:
         path = Path(config_path)
         if path.exists():
             return load_config(config_path)
 
-    # If env vars were partially set, use them with defaults
-    if env_config:
-        return env_config
-
-    # Return defaults
-    return AppConfig()
+    # Fall back to environment variables (includes defaults)
+    return load_config_from_env()
 
 
 def _substitute_env_vars(config: dict) -> dict:
