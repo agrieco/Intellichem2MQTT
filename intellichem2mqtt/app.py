@@ -4,9 +4,9 @@ import asyncio
 import logging
 import signal
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
-from .config import AppConfig, load_config
+from .config import AppConfig, get_config
 from .serial.connection import RS485Connection
 from .protocol.outbound import StatusRequestMessage
 from .protocol.inbound import StatusResponseParser
@@ -25,13 +25,19 @@ class IntelliChem2MQTT:
     and MQTT publishing to Home Assistant.
     """
 
-    def __init__(self, config_path: str):
+    def __init__(self, config: Union[AppConfig, str, None] = None):
         """Initialize the application.
 
         Args:
-            config_path: Path to YAML configuration file
+            config: AppConfig instance, path to YAML config file, or None for env/defaults
         """
-        self.config = load_config(config_path)
+        if isinstance(config, AppConfig):
+            self.config = config
+        elif isinstance(config, str):
+            self.config = get_config(config)
+        else:
+            self.config = get_config()
+
         self.running = False
         self._shutdown_event = asyncio.Event()
 
@@ -233,11 +239,11 @@ class IntelliChem2MQTT:
         }
 
 
-async def run_app(config_path: str) -> None:
+async def run_app(config: Union[AppConfig, str, None] = None) -> None:
     """Run the application.
 
     Args:
-        config_path: Path to configuration file
+        config: AppConfig instance, path to config file, or None for env/defaults
     """
-    app = IntelliChem2MQTT(config_path)
+    app = IntelliChem2MQTT(config)
     await app.start()

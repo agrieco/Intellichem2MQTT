@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  intellichem2mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: intellichem2mqtt:latest
+    container_name: intellichem2mqtt
+    restart: unless-stopped
+
+    # Serial port access - adjust device path if needed
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+
+    # Environment variables for configuration (no config file needed)
+    environment:
+      # Serial port settings
+      - SERIAL_PORT=/dev/ttyUSB0
+      # - SERIAL_BAUDRATE=9600  # Default: 9600
+
+      # IntelliChem settings
+      # - INTELLICHEM_ADDRESS=144        # Default: 144 (range: 144-158)
+      # - INTELLICHEM_POLL_INTERVAL=30   # Default: 30 seconds
+      # - INTELLICHEM_TIMEOUT=5          # Default: 5 seconds
+
+      # MQTT settings (required) - UPDATE THESE
+      - MQTT_HOST=your-mqtt-broker-ip
+      - MQTT_PORT=1883
+      - MQTT_USERNAME=your-username
+      - MQTT_PASSWORD=your-password
+      # - MQTT_CLIENT_ID=intellichem2mqtt
+      # - MQTT_DISCOVERY_PREFIX=homeassistant
+      # - MQTT_TOPIC_PREFIX=intellichem2mqtt
+
+      # Logging
+      - LOG_LEVEL=INFO
+      - TZ=America/New_York
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Network - use bridge (default) for remote MQTT broker
+    networks:
+      - intellichem-net
+
+networks:
+  intellichem-net:
+    driver: bridge

@@ -21,7 +21,9 @@ build/
 nodejs-poolController/
 *.log
 
-# Config with secrets (keep example, ignore actual configs)
+# Config with secrets (keep examples, ignore actual configs)
 config.yaml
 config/config.yaml
 !config/config.example.yaml
+docker-compose.yaml
+!docker-compose.example.yaml

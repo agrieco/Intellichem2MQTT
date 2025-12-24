@@ -1,4 +1,10 @@
-"""Configuration management with Pydantic validation."""
+"""Configuration management with Pydantic validation.
+
+Supports three configuration sources (in priority order):
+1. Environment variables (for Docker)
+2. YAML config file (for traditional deployments)
+3. Default values
+"""
 
 import os
 from pathlib import Path
@@ -155,6 +161,79 @@ class AppConfig(BaseModel):
     )
 
 
+# Environment variable mapping
+ENV_MAPPING = {
+    # Serial
+    "SERIAL_PORT": ("serial", "port"),
+    "SERIAL_BAUDRATE": ("serial", "baudrate", int),
+
+    # IntelliChem
+    "INTELLICHEM_ADDRESS": ("intellichem", "address", int),
+    "INTELLICHEM_POLL_INTERVAL": ("intellichem", "poll_interval", int),
+    "INTELLICHEM_TIMEOUT": ("intellichem", "timeout", int),
+
+    # MQTT
+    "MQTT_HOST": ("mqtt", "host"),
+    "MQTT_PORT": ("mqtt", "port", int),
+    "MQTT_USERNAME": ("mqtt", "username"),
+    "MQTT_PASSWORD": ("mqtt", "password"),
+    "MQTT_CLIENT_ID": ("mqtt", "client_id"),
+    "MQTT_DISCOVERY_PREFIX": ("mqtt", "discovery_prefix"),
+    "MQTT_TOPIC_PREFIX": ("mqtt", "topic_prefix"),
+    "MQTT_RETAIN": ("mqtt", "retain", lambda x: x.lower() in ("true", "1", "yes")),
+    "MQTT_QOS": ("mqtt", "qos", int),
+
+    # Logging
+    "LOG_LEVEL": ("logging", "level"),
+}
+
+
+def _get_env_value(env_var: str, mapping: tuple):
+    """Get environment variable value with optional type conversion."""
+    value = os.environ.get(env_var)
+    if value is None:
+        return None
+
+    # Apply type conversion if specified
+    if len(mapping) > 2:
+        converter = mapping[2]
+        try:
+            return converter(value)
+        except (ValueError, TypeError):
+            return value
+    return value
+
+
+def load_config_from_env() -> Optional[AppConfig]:
+    """Load configuration from environment variables.
+
+    Returns:
+        AppConfig if any env vars are set, None otherwise
+    """
+    config_dict = {
+        "serial": {},
+        "intellichem": {},
+        "mqtt": {},
+        "logging": {},
+    }
+
+    found_any = False
+
+    for env_var, mapping in ENV_MAPPING.items():
+        value = _get_env_value(env_var, mapping)
+        if value is not None:
+            section = mapping[0]
+            key = mapping[1]
+            config_dict[section][key] = value
+            found_any = True
+
+    # Check for required MQTT_HOST to determine if env config is being used
+    if os.environ.get("MQTT_HOST"):
+        return AppConfig(**config_dict)
+
+    return None if not found_any else AppConfig(**config_dict)
+
+
 def load_config(config_path: str) -> AppConfig:
     """Load configuration from a YAML file.
 
@@ -180,6 +259,39 @@ def load_config(config_path: str) -> AppConfig:
     raw_config = _substitute_env_vars(raw_config)
 
     return AppConfig(**raw_config)
+
+
+def get_config(config_path: Optional[str] = None) -> AppConfig:
+    """Get configuration from environment variables or config file.
+
+    Priority:
+    1. Environment variables (if MQTT_HOST is set)
+    2. Config file (if path provided and file exists)
+    3. Default values
+
+    Args:
+        config_path: Optional path to YAML config file
+
+    Returns:
+        Validated AppConfig instance
+    """
+    # Try environment variables first
+    env_config = load_config_from_env()
+    if env_config and os.environ.get("MQTT_HOST"):
+        return env_config
+
+    # Try config file
+    if config_path:
+        path = Path(config_path)
+        if path.exists():
+            return load_config(config_path)
+
+    # If env vars were partially set, use them with defaults
+    if env_config:
+        return env_config
+
+    # Return defaults
+    return AppConfig()
 
 
 def _substitute_env_vars(config: dict) -> dict:
@@ -213,3 +325,32 @@ def create_default_config() -> str:
         default_flow_style=False,
         sort_keys=False,
     )
+
+
+def print_env_help() -> str:
+    """Generate help text for environment variables."""
+    lines = [
+        "Environment Variables:",
+        "",
+        "  Serial Port:",
+        "    SERIAL_PORT          Serial device path (default: /dev/ttyUSB0)",
+        "    SERIAL_BAUDRATE      Baud rate (default: 9600)",
+        "",
+        "  IntelliChem:",
+        "    INTELLICHEM_ADDRESS       Device address 144-158 (default: 144)",
+        "    INTELLICHEM_POLL_INTERVAL Poll interval seconds (default: 30)",
+        "    INTELLICHEM_TIMEOUT       Response timeout seconds (default: 5)",
+        "",
+        "  MQTT (required for env-based config):",
+        "    MQTT_HOST             Broker hostname/IP (required)",
+        "    MQTT_PORT             Broker port (default: 1883)",
+        "    MQTT_USERNAME         Username (optional)",
+        "    MQTT_PASSWORD         Password (optional)",
+        "    MQTT_CLIENT_ID        Client ID (default: intellichem2mqtt)",
+        "    MQTT_DISCOVERY_PREFIX HA discovery prefix (default: homeassistant)",
+        "    MQTT_TOPIC_PREFIX     Topic prefix (default: intellichem2mqtt)",
+        "",
+        "  Logging:",
+        "    LOG_LEVEL            DEBUG, INFO, WARNING, ERROR (default: INFO)",
+    ]
+    return "\n".join(lines)
