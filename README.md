@@ -2,6 +2,10 @@
 
 [![Build and Publish Docker Image](https://github.com/agrieco/Intellichem2MQTT/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/agrieco/Intellichem2MQTT/actions/workflows/docker-publish.yml)
 
+> **🤖 VIBE CODED WITH CLAUDE CODE**
+>
+> This entire project was built through conversational AI programming with [Claude Code](https://claude.com/claude-code). From reverse-engineering the Pentair RS-485 protocol to Docker deployment — all vibe coded. Use at your own risk, but it works great on my pool! 🏊
+
 A Python application that reads data from Pentair IntelliChem pool chemistry controllers via RS-485 and publishes to MQTT with Home Assistant auto-discovery support.
 
 ## Features
@@ -264,3 +268,12 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - [nodejs-poolController](https://github.com/tagyoureit/nodejs-poolController) - Protocol documentation and reference implementation
 - [Pentair](https://www.pentair.com/) - IntelliChem hardware
+- [Claude Code](https://claude.com/claude-code) - The AI that wrote every line of this code
+
+---
+
+<p align="center">
+  <b>🤖 100% Vibe Coded</b><br>
+  <i>Built entirely through conversation with Claude Code.<br>
+  No humans were mass-producing code in the making of this project.</i>
+</p>
