@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  intellichem2mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: intellichem2mqtt:latest
+    container_name: intellichem2mqtt
+    restart: unless-stopped
+
+    # Serial port access
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+
+    # Volume mounts
+    volumes:
+      - ./config/config.yaml:/config/config.yaml:ro
+
+    # Environment variables (optional overrides)
+    environment:
+      - TZ=America/New_York
+      # Uncomment to override config file location
+      # - INTELLICHEM_CONFIG=/config/config.yaml
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Network mode - use host if MQTT broker is on localhost
+    # network_mode: host
+
+    # Or use bridge network (default)
+    networks:
+      - intellichem-net
+
+networks:
+  intellichem-net:
+    driver: bridge

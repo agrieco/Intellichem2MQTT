@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+dist
+build
+*.egg
+
+# Virtual environments
+venv
+.venv
+ENV
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+.tox
+.mypy_cache
+
+# Docker
+Dockerfile
+docker-compose*.yaml
+.dockerignore
+
+# Documentation
+*.md
+docs
+
+# Other
+.claude
+nodejs-poolController
+systemd
+tests
+config/*.yaml
+!config/config.example.yaml
