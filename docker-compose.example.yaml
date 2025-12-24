@@ -1,9 +1,11 @@
 services:
   intellichem2mqtt:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: intellichem2mqtt:latest
+    # Use pre-built image from GitHub Container Registry
+    image: ghcr.io/agrieco/intellichem2mqtt:latest
+    # Or build locally:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     container_name: intellichem2mqtt
     restart: unless-stopped
 
