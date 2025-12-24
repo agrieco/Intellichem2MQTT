@@ -113,6 +113,12 @@ class MQTTConfig(BaseModel):
         le=2,
         description="MQTT QoS level"
     )
+    keepalive: int = Field(
+        default=30,
+        ge=5,
+        le=300,
+        description="MQTT keepalive interval in seconds"
+    )
 
     @field_validator("host", "username", "password", mode="before")
     @classmethod
@@ -187,6 +193,7 @@ ENV_MAPPING = {
     "MQTT_TOPIC_PREFIX": ("mqtt", "topic_prefix"),
     "MQTT_RETAIN": ("mqtt", "retain", lambda x: x.lower() in ("true", "1", "yes")),
     "MQTT_QOS": ("mqtt", "qos", int),
+    "MQTT_KEEPALIVE": ("mqtt", "keepalive", int),
 
     # Logging
     "LOG_LEVEL": ("logging", "level"),

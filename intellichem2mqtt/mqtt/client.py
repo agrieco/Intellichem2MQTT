@@ -55,6 +55,7 @@ class MQTTClient:
                 username=self.config.username,
                 password=self.config.password,
                 identifier=self.config.client_id,
+                keepalive=self.config.keepalive,
                 # Last Will and Testament for availability
                 will=aiomqtt.Will(
                     topic=self.availability_topic,
@@ -65,7 +66,7 @@ class MQTTClient:
             )
             await self._client.__aenter__()
             self._connected = True
-            logger.info("Connected to MQTT broker")
+            logger.info(f"Connected to MQTT broker (keepalive={self.config.keepalive}s)")
 
         except Exception as e:
             logger.error(f"Failed to connect to MQTT broker: {e}")
@@ -89,6 +90,25 @@ class MQTTClient:
             self._connected = False
             logger.info("Disconnected from MQTT broker")
 
+    async def reconnect(self) -> None:
+        """Reconnect to the MQTT broker.
+
+        Useful when the connection is lost unexpectedly.
+        """
+        logger.info("Attempting to reconnect to MQTT broker")
+
+        # Clean up old connection
+        if self._client:
+            try:
+                await self._client.__aexit__(None, None, None)
+            except Exception:
+                pass
+            self._client = None
+            self._connected = False
+
+        # Establish new connection
+        await self.connect()
+
     async def publish(
         self,
         topic: str,
@@ -103,6 +123,10 @@ class MQTTClient:
             payload: Message payload (will be JSON-encoded if dict/list)
             retain: Whether to retain the message (default from config)
             qos: QoS level (default from config)
+
+        Raises:
+            ConnectionError: If not connected to MQTT broker
+            aiomqtt.MqttError: If publish fails due to connection issues
         """
         if not self._client or not self._connected:
             raise ConnectionError("Not connected to MQTT broker")
@@ -123,13 +147,18 @@ class MQTTClient:
         else:
             payload_str = str(payload)
 
-        await self._client.publish(
-            topic,
-            payload=payload_str,
-            qos=qos,
-            retain=retain,
-        )
-        logger.debug(f"Published to {topic}: {payload_str[:100]}")
+        try:
+            await self._client.publish(
+                topic,
+                payload=payload_str,
+                qos=qos,
+                retain=retain,
+            )
+            logger.debug(f"Published to {topic}: {payload_str[:100]}")
+        except aiomqtt.MqttError as e:
+            logger.error(f"MQTT publish failed for {topic}: {e}")
+            self._connected = False
+            raise
 
     async def publish_json(
         self,

@@ -6,6 +6,8 @@ import signal
 from datetime import datetime
 from typing import Optional, Union
 
+import aiomqtt
+
 from .config import AppConfig, get_config
 from .serial.connection import RS485Connection
 from .protocol.outbound import StatusRequestMessage
@@ -158,6 +160,7 @@ class IntelliChem2MQTT:
                         if self._mqtt_enabled:
                             # Publish to MQTT
                             await self.publisher.publish_state(state)
+                            logger.debug("Successfully published state to MQTT")
 
                             # If we were in comms lost state, notify recovery
                             if was_comms_lost:
@@ -179,6 +182,18 @@ class IntelliChem2MQTT:
                     if self._mqtt_enabled and not was_comms_lost:
                         await self.publisher.publish_comms_error()
                         was_comms_lost = True
+
+            except aiomqtt.MqttError as e:
+                # MQTT connection lost - attempt reconnection
+                logger.error(f"MQTT error during poll: {e}")
+                self._stats["failed_polls"] += 1
+                try:
+                    logger.info("Attempting MQTT reconnection...")
+                    await self.mqtt.reconnect()
+                    await self.mqtt.publish_availability("online")
+                    logger.info("MQTT reconnection successful")
+                except Exception as reconnect_error:
+                    logger.error(f"MQTT reconnection failed: {reconnect_error}")
 
             except Exception as e:
                 logger.error(f"Poll error: {e}")
