@@ -4,7 +4,7 @@
 
 > **🤖 VIBE CODED WITH CLAUDE CODE**
 >
-> This entire project was built through conversational AI programming with [Claude Code](https://claude.com/claude-code). From reverse-engineering the Pentair RS-485 protocol to Docker deployment — all vibe coded. Use at your own risk, but it works great on my pool! 🏊
+> This entire project was built through conversational AI programming with [Claude Code](https://claude.com/claude-code). From implementing the Pentair RS-485 protocol (thanks to [nodejs-poolController](https://github.com/tagyoureit/nodejs-poolController) for the protocol documentation!) to Docker deployment — all vibe coded. Use at your own risk, but it works great on my pool! 🏊
 
 A Python application that reads data from Pentair IntelliChem pool chemistry controllers via RS-485 and publishes to MQTT with Home Assistant auto-discovery support.
 
