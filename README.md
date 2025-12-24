@@ -15,6 +15,7 @@ A Python application that reads data from Pentair IntelliChem pool chemistry con
 - **Docker Support**: Pre-built multi-architecture images (amd64, arm64, arm/v7)
 - **Environment Variable Config**: No config file needed for Docker deployments
 - **Log-Only Mode**: Test without MQTT broker configured
+- **Full Control Mode**: Adjust setpoints and enable/disable dosing from Home Assistant
 - **Comprehensive Monitoring**:
   - pH level and setpoint
   - ORP level and setpoint
@@ -26,6 +27,11 @@ A Python application that reads data from Pentair IntelliChem pool chemistry con
   - Salt level (if IntelliChlor present)
   - Alarms and warnings
   - Firmware version
+- **Control Capabilities** (when enabled):
+  - Adjust pH setpoint (7.0-7.6)
+  - Adjust ORP setpoint (400-800 mV)
+  - Set calcium hardness, alkalinity, cyanuric acid
+  - Enable/disable pH and ORP dosing
 
 ## Quick Start (Docker)
 
@@ -77,9 +83,13 @@ docker logs -f intellichem2mqtt
 | `INTELLICHEM_ADDRESS` | No | 144 | IntelliChem address (144-158) |
 | `INTELLICHEM_POLL_INTERVAL` | No | 60 | Poll interval in seconds |
 | `INTELLICHEM_TIMEOUT` | No | 5 | Response timeout in seconds |
+| `INTELLICHEM_CONTROL_ENABLED` | No | false | Enable control features |
+| `INTELLICHEM_CONTROL_RATE_LIMIT` | No | 5 | Min seconds between commands |
 | `LOG_LEVEL` | No | INFO | DEBUG, INFO, WARNING, ERROR |
 
 *If `MQTT_HOST` is not set, runs in **log-only mode** (useful for testing).
+
+**Control Features**: Set `INTELLICHEM_CONTROL_ENABLED=true` to enable setpoint adjustment and dosing control. Control entities will appear in Home Assistant.
 
 ## Log Output
 
@@ -154,8 +164,18 @@ Entities are automatically discovered via MQTT. After starting the service, you'
 - pH Lockout, pH/ORP Daily Limits
 - pH Dosing, ORP Dosing
 
+**Control Entities** (when `INTELLICHEM_CONTROL_ENABLED=true`):
+- pH Setpoint Control (Number slider, 7.0-7.6)
+- ORP Setpoint Control (Number slider, 400-800 mV)
+- Calcium Hardness Setting (Number input)
+- Cyanuric Acid Setting (Number input)
+- Alkalinity Setting (Number input)
+- pH Dosing Enable (Switch)
+- ORP Dosing Enable (Switch)
+
 ### MQTT Topics
 
+**State Topics (published by app):**
 ```
 intellichem2mqtt/intellichem/ph/level
 intellichem2mqtt/intellichem/ph/setpoint
@@ -165,6 +185,22 @@ intellichem2mqtt/intellichem/temperature
 intellichem2mqtt/intellichem/lsi
 intellichem2mqtt/intellichem/availability
 ...
+```
+
+**Command Topics (when control enabled):**
+```
+intellichem2mqtt/intellichem/set/ph_setpoint      # Payload: float (7.0-7.6)
+intellichem2mqtt/intellichem/set/orp_setpoint     # Payload: int (400-800)
+intellichem2mqtt/intellichem/set/calcium_hardness # Payload: int (25-800)
+intellichem2mqtt/intellichem/set/cyanuric_acid    # Payload: int (0-210)
+intellichem2mqtt/intellichem/set/alkalinity       # Payload: int (25-800)
+intellichem2mqtt/intellichem/set/ph_dosing        # Payload: ON/OFF
+intellichem2mqtt/intellichem/set/orp_dosing       # Payload: ON/OFF
+```
+
+**Command Result:**
+```
+intellichem2mqtt/intellichem/command/status       # JSON with success/error
 ```
 
 ## Hardware Setup
@@ -242,6 +278,7 @@ This application implements the Pentair IntelliChem RS-485 protocol:
 - **Packet Format**: Preamble + Header + Payload + Checksum
 - **Status Request**: Action 210
 - **Status Response**: Action 18 (41-byte payload)
+- **Configuration Command**: Action 146 (21-byte payload) - for setpoint/dosing control
 
 ## Building Docker Image Locally
 

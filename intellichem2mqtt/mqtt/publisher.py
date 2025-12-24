@@ -1,11 +1,13 @@
 """State publisher for MQTT."""
 
+import json
 import logging
 from datetime import datetime
 from typing import Optional
 
 from ..config import MQTTConfig
 from ..models.intellichem import IntelliChemState
+from ..models.commands import CommandResult
 from .client import MQTTClient
 
 logger = logging.getLogger(__name__)
@@ -83,6 +85,8 @@ class StatePublisher:
         await self.client.publish(self._topic("ph", "dose_volume"), ph.dose_volume)
         await self.client.publish(self._topic("ph", "dosing_status"), str(ph.dosing_status))
         await self.client.publish(self._topic("ph", "is_dosing"), ph.is_dosing)
+        # Dosing enabled state (tank_level > 0 means enabled)
+        await self.client.publish(self._topic("ph", "dosing_enabled"), ph.tank_level > 0)
 
     async def _publish_orp_state(self, state: IntelliChemState) -> None:
         """Publish ORP-related state."""
@@ -99,6 +103,8 @@ class StatePublisher:
         await self.client.publish(self._topic("orp", "dose_volume"), orp.dose_volume)
         await self.client.publish(self._topic("orp", "dosing_status"), str(orp.dosing_status))
         await self.client.publish(self._topic("orp", "is_dosing"), orp.is_dosing)
+        # Dosing enabled state (tank_level > 0 means enabled)
+        await self.client.publish(self._topic("orp", "dosing_enabled"), orp.tank_level > 0)
 
     async def _publish_chemistry_state(self, state: IntelliChemState) -> None:
         """Publish water chemistry state."""
@@ -170,3 +176,16 @@ class StatePublisher:
     def last_state(self) -> Optional[IntelliChemState]:
         """Get the last published state."""
         return self._last_state
+
+    async def publish_command_result(self, result: CommandResult) -> None:
+        """Publish a command execution result.
+
+        Args:
+            result: Command result to publish
+        """
+        await self.client.publish_json(
+            self._topic("command", "status"),
+            result.to_json(),
+            retain=False,  # Don't retain command results
+        )
+        logger.debug(f"Published command result: {result.command} = {result.success}")

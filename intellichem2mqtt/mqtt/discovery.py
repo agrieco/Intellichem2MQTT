@@ -4,6 +4,18 @@ import logging
 from typing import Any
 
 from ..config import MQTTConfig
+from ..protocol.constants import (
+    PH_SETPOINT_MIN,
+    PH_SETPOINT_MAX,
+    ORP_SETPOINT_MIN,
+    ORP_SETPOINT_MAX,
+    CALCIUM_HARDNESS_MIN,
+    CALCIUM_HARDNESS_MAX,
+    CYANURIC_ACID_MIN,
+    CYANURIC_ACID_MAX,
+    ALKALINITY_MIN,
+    ALKALINITY_MAX,
+)
 from .client import MQTTClient
 
 logger = logging.getLogger(__name__)
@@ -16,15 +28,22 @@ class DiscoveryManager:
     entities so they appear automatically in Home Assistant.
     """
 
-    def __init__(self, mqtt_client: MQTTClient, config: MQTTConfig):
+    def __init__(
+        self,
+        mqtt_client: MQTTClient,
+        config: MQTTConfig,
+        control_enabled: bool = False,
+    ):
         """Initialize the discovery manager.
 
         Args:
             mqtt_client: Connected MQTT client
             config: MQTT configuration
+            control_enabled: Whether control features are enabled
         """
         self.client = mqtt_client
         self.config = config
+        self.control_enabled = control_enabled
         self._device_info = {
             "identifiers": ["intellichem_144"],
             "name": "IntelliChem",
@@ -55,6 +74,17 @@ class DiscoveryManager:
             State topic string
         """
         return f"{self.config.topic_prefix}/intellichem/{'/'.join(path)}"
+
+    def _command_topic(self, command: str) -> str:
+        """Build a command topic.
+
+        Args:
+            command: Command name (e.g., 'ph_setpoint')
+
+        Returns:
+            Command topic string
+        """
+        return f"{self.config.topic_prefix}/intellichem/set/{command}"
 
     def _base_config(self, name: str, entity_id: str) -> dict[str, Any]:
         """Build base discovery config.
@@ -87,6 +117,12 @@ class DiscoveryManager:
 
         # Text sensors for status displays
         await self._publish_text_sensors()
+
+        # Control entities (if enabled)
+        if self.control_enabled:
+            await self._publish_number_entities()
+            await self._publish_switch_entities()
+            logger.info("Control entities published (control enabled)")
 
         logger.info("Discovery configs published")
 
@@ -381,6 +417,139 @@ class DiscoveryManager:
             topic = self._discovery_topic("sensor", sensor["entity_id"])
             await self.client.publish_json(topic, config, retain=True)
 
+    async def _publish_number_entities(self) -> None:
+        """Publish number entity discovery configs for setpoint control."""
+        numbers = [
+            # pH setpoint control
+            {
+                "name": "pH Setpoint Control",
+                "entity_id": "ph_setpoint_control",
+                "command_topic": self._command_topic("ph_setpoint"),
+                "state_topic": self._state_topic("ph", "setpoint"),
+                "min": PH_SETPOINT_MIN,
+                "max": PH_SETPOINT_MAX,
+                "step": 0.1,
+                "unit_of_measurement": "pH",
+                "icon": "mdi:target",
+                "mode": "slider",
+            },
+            # ORP setpoint control
+            {
+                "name": "ORP Setpoint Control",
+                "entity_id": "orp_setpoint_control",
+                "command_topic": self._command_topic("orp_setpoint"),
+                "state_topic": self._state_topic("orp", "setpoint"),
+                "min": ORP_SETPOINT_MIN,
+                "max": ORP_SETPOINT_MAX,
+                "step": 10,
+                "unit_of_measurement": "mV",
+                "icon": "mdi:target",
+                "mode": "slider",
+            },
+            # Calcium hardness
+            {
+                "name": "Calcium Hardness Setting",
+                "entity_id": "calcium_hardness_control",
+                "command_topic": self._command_topic("calcium_hardness"),
+                "state_topic": self._state_topic("calcium_hardness"),
+                "min": CALCIUM_HARDNESS_MIN,
+                "max": CALCIUM_HARDNESS_MAX,
+                "step": 25,
+                "unit_of_measurement": "ppm",
+                "icon": "mdi:flask",
+                "mode": "box",
+            },
+            # Cyanuric acid
+            {
+                "name": "Cyanuric Acid Setting",
+                "entity_id": "cyanuric_acid_control",
+                "command_topic": self._command_topic("cyanuric_acid"),
+                "state_topic": self._state_topic("cyanuric_acid"),
+                "min": CYANURIC_ACID_MIN,
+                "max": CYANURIC_ACID_MAX,
+                "step": 10,
+                "unit_of_measurement": "ppm",
+                "icon": "mdi:flask",
+                "mode": "box",
+            },
+            # Alkalinity
+            {
+                "name": "Alkalinity Setting",
+                "entity_id": "alkalinity_control",
+                "command_topic": self._command_topic("alkalinity"),
+                "state_topic": self._state_topic("alkalinity"),
+                "min": ALKALINITY_MIN,
+                "max": ALKALINITY_MAX,
+                "step": 10,
+                "unit_of_measurement": "ppm",
+                "icon": "mdi:flask",
+                "mode": "box",
+            },
+        ]
+
+        for number in numbers:
+            config = self._base_config(number["name"], number["entity_id"])
+            config["command_topic"] = number["command_topic"]
+            config["state_topic"] = number["state_topic"]
+            config["min"] = number["min"]
+            config["max"] = number["max"]
+            config["step"] = number["step"]
+
+            for key in ["unit_of_measurement", "icon", "mode"]:
+                if key in number:
+                    config[key] = number[key]
+
+            topic = self._discovery_topic("number", number["entity_id"])
+            await self.client.publish_json(topic, config, retain=True)
+
+        logger.debug(f"Published {len(numbers)} number entities")
+
+    async def _publish_switch_entities(self) -> None:
+        """Publish switch entity discovery configs for dosing control."""
+        switches = [
+            # pH dosing enable/disable
+            {
+                "name": "pH Dosing Enable",
+                "entity_id": "ph_dosing_enable",
+                "command_topic": self._command_topic("ph_dosing"),
+                "state_topic": self._state_topic("ph", "dosing_enabled"),
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "state_on": "true",
+                "state_off": "false",
+                "icon": "mdi:flask-outline",
+            },
+            # ORP dosing enable/disable
+            {
+                "name": "ORP Dosing Enable",
+                "entity_id": "orp_dosing_enable",
+                "command_topic": self._command_topic("orp_dosing"),
+                "state_topic": self._state_topic("orp", "dosing_enabled"),
+                "payload_on": "ON",
+                "payload_off": "OFF",
+                "state_on": "true",
+                "state_off": "false",
+                "icon": "mdi:flask-outline",
+            },
+        ]
+
+        for switch in switches:
+            config = self._base_config(switch["name"], switch["entity_id"])
+            config["command_topic"] = switch["command_topic"]
+            config["state_topic"] = switch["state_topic"]
+            config["payload_on"] = switch["payload_on"]
+            config["payload_off"] = switch["payload_off"]
+            config["state_on"] = switch["state_on"]
+            config["state_off"] = switch["state_off"]
+
+            if "icon" in switch:
+                config["icon"] = switch["icon"]
+
+            topic = self._discovery_topic("switch", switch["entity_id"])
+            await self.client.publish_json(topic, config, retain=True)
+
+        logger.debug(f"Published {len(switches)} switch entities")
+
     async def remove_discovery_configs(self) -> None:
         """Remove all discovery configs from Home Assistant."""
         logger.info("Removing Home Assistant discovery configs")
@@ -400,12 +569,29 @@ class DiscoveryManager:
             "orp_daily_limit", "ph_dosing", "orp_dosing",
         ]
 
+        number_ids = [
+            "ph_setpoint_control", "orp_setpoint_control",
+            "calcium_hardness_control", "cyanuric_acid_control", "alkalinity_control",
+        ]
+
+        switch_ids = [
+            "ph_dosing_enable", "orp_dosing_enable",
+        ]
+
         for entity_id in entity_ids:
             topic = self._discovery_topic("sensor", entity_id)
             await self.client.publish(topic, "", retain=True)
 
         for entity_id in binary_ids:
             topic = self._discovery_topic("binary_sensor", entity_id)
+            await self.client.publish(topic, "", retain=True)
+
+        for entity_id in number_ids:
+            topic = self._discovery_topic("number", entity_id)
+            await self.client.publish(topic, "", retain=True)
+
+        for entity_id in switch_ids:
+            topic = self._discovery_topic("switch", entity_id)
             await self.client.publish(topic, "", retain=True)
 
         logger.info("Discovery configs removed")

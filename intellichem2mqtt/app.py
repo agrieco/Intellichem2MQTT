@@ -10,9 +10,12 @@ from .config import AppConfig, get_config
 from .serial.connection import RS485Connection
 from .protocol.outbound import StatusRequestMessage
 from .protocol.inbound import StatusResponseParser
+from .protocol.commands import ConfigurationCommand
 from .mqtt.client import MQTTClient
 from .mqtt.discovery import DiscoveryManager
 from .mqtt.publisher import StatePublisher
+from .mqtt.command_handler import CommandHandler
+from .models import IntelliChemState, CommandResult
 from .utils.logging import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -46,13 +49,19 @@ class IntelliChem2MQTT:
         self.mqtt: Optional[MQTTClient] = None
         self.discovery: Optional[DiscoveryManager] = None
         self.publisher: Optional[StatePublisher] = None
+        self.command_handler: Optional[CommandHandler] = None
         self.parser = StatusResponseParser()
+
+        # State caching for partial command updates
+        self._last_state: Optional[IntelliChemState] = None
 
         # Statistics
         self._stats = {
             "polls": 0,
             "successful_polls": 0,
             "failed_polls": 0,
+            "commands_sent": 0,
+            "commands_failed": 0,
             "last_success": None,
             "start_time": None,
         }
@@ -83,6 +92,13 @@ class IntelliChem2MQTT:
         # Set up signal handlers
         self._setup_signal_handlers()
 
+        # Check if control is enabled
+        self._control_enabled = self.config.control.enabled
+        if self._control_enabled:
+            logger.info("Control features ENABLED")
+        else:
+            logger.info("Control features disabled (read-only mode)")
+
         try:
             # Initialize MQTT connection (if enabled)
             if self._mqtt_enabled:
@@ -91,21 +107,46 @@ class IntelliChem2MQTT:
                 await self.mqtt.publish_availability("online")
 
                 # Initialize discovery and publish configs
-                self.discovery = DiscoveryManager(self.mqtt, self.config.mqtt)
+                self.discovery = DiscoveryManager(
+                    self.mqtt,
+                    self.config.mqtt,
+                    control_enabled=self._control_enabled,
+                )
                 await self.discovery.publish_discovery_configs()
 
                 # Initialize state publisher
                 self.publisher = StatePublisher(self.mqtt, self.config.mqtt)
 
+                # Initialize command handler (if control enabled)
+                if self._control_enabled:
+                    self.command_handler = CommandHandler(
+                        config=self.config.control,
+                        intellichem_address=self.config.intellichem.address,
+                    )
+                    self.command_handler.set_send_callback(self._send_command)
+                    self.command_handler.set_result_callback(self._publish_command_result)
+
+                    # Subscribe to command topics
+                    await self.mqtt.subscribe_commands()
+
             # Initialize serial connection
             self.serial = RS485Connection(self.config.serial)
             await self.serial.connect()
 
-            # Start polling loop
+            # Start polling loop (and message loop if control enabled)
             logger.info(
                 f"Starting poll loop (interval={self.config.intellichem.poll_interval}s)"
             )
-            await self._poll_loop()
+
+            if self._mqtt_enabled and self._control_enabled:
+                # Run both poll loop and message loop concurrently
+                await asyncio.gather(
+                    self._poll_loop(),
+                    self._message_loop(),
+                )
+            else:
+                # Just run poll loop
+                await self._poll_loop()
 
         except asyncio.CancelledError:
             logger.info("Application cancelled")
@@ -147,6 +188,11 @@ class IntelliChem2MQTT:
                     if state:
                         self._stats["successful_polls"] += 1
                         self._stats["last_success"] = datetime.now()
+
+                        # Cache state for command handler
+                        self._last_state = state
+                        if self.command_handler:
+                            self.command_handler.set_current_state(state)
 
                         # Log compact status at INFO level
                         logger.info(
@@ -195,6 +241,78 @@ class IntelliChem2MQTT:
             except asyncio.TimeoutError:
                 # Normal timeout, continue polling
                 continue
+
+    async def _message_loop(self) -> None:
+        """MQTT message processing loop for command handling.
+
+        Runs concurrently with the poll loop to process incoming commands.
+        """
+        logger.debug("Starting MQTT message loop")
+
+        try:
+            command_prefix = self.mqtt.topic("intellichem", "set")
+            await self.mqtt.message_loop(
+                callback=self._handle_mqtt_message,
+                filter_prefix=command_prefix,
+            )
+        except asyncio.CancelledError:
+            logger.debug("Message loop cancelled")
+        except Exception as e:
+            logger.error(f"Message loop error: {e}")
+
+    async def _handle_mqtt_message(self, topic: str, payload: bytes) -> None:
+        """Handle an incoming MQTT message.
+
+        Args:
+            topic: MQTT topic
+            payload: Message payload
+        """
+        if not self.command_handler:
+            return
+
+        try:
+            result = await self.command_handler.handle_message(topic, payload)
+            if result:
+                logger.debug(f"Command result: {result}")
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+
+    async def _send_command(self, command: ConfigurationCommand) -> bool:
+        """Send a configuration command to IntelliChem.
+
+        Args:
+            command: Configuration command to send
+
+        Returns:
+            True if command was sent successfully
+        """
+        if not self.serial:
+            logger.error("Serial connection not available")
+            return False
+
+        try:
+            await self.serial.send(command.to_bytes())
+            self._stats["commands_sent"] += 1
+            logger.info(f"Sent command: {command}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send command: {e}")
+            self._stats["commands_failed"] += 1
+            return False
+
+    async def _publish_command_result(self, result: CommandResult) -> None:
+        """Publish a command result to MQTT.
+
+        Args:
+            result: Command result to publish
+        """
+        if not self.publisher:
+            return
+
+        try:
+            await self.publisher.publish_command_result(result)
+        except Exception as e:
+            logger.error(f"Failed to publish command result: {e}")
 
     async def stop(self) -> None:
         """Stop the application gracefully."""

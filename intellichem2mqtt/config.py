@@ -128,6 +128,21 @@ class MQTTConfig(BaseModel):
         return self.host is not None
 
 
+class ControlConfig(BaseModel):
+    """Control feature configuration for write operations."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable control features (setpoints, dosing enable/disable)"
+    )
+    rate_limit_seconds: int = Field(
+        default=5,
+        ge=1,
+        le=60,
+        description="Minimum seconds between control commands"
+    )
+
+
 class LoggingConfig(BaseModel):
     """Logging configuration."""
 
@@ -160,6 +175,10 @@ class AppConfig(BaseModel):
         default_factory=MQTTConfig,
         description="MQTT broker settings"
     )
+    control: ControlConfig = Field(
+        default_factory=ControlConfig,
+        description="Control feature settings"
+    )
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig,
         description="Logging settings"
@@ -190,6 +209,10 @@ ENV_MAPPING = {
 
     # Logging
     "LOG_LEVEL": ("logging", "level"),
+
+    # Control
+    "INTELLICHEM_CONTROL_ENABLED": ("control", "enabled", lambda x: x.lower() in ("true", "1", "yes")),
+    "INTELLICHEM_CONTROL_RATE_LIMIT": ("control", "rate_limit_seconds", int),
 }
 
 
@@ -219,6 +242,7 @@ def load_config_from_env() -> AppConfig:
         "serial": {},
         "intellichem": {},
         "mqtt": {},
+        "control": {},
         "logging": {},
     }
 
@@ -338,6 +362,10 @@ def print_env_help() -> str:
         "    MQTT_CLIENT_ID        Client ID (default: intellichem2mqtt)",
         "    MQTT_DISCOVERY_PREFIX HA discovery prefix (default: homeassistant)",
         "    MQTT_TOPIC_PREFIX     Topic prefix (default: intellichem2mqtt)",
+        "",
+        "  Control (write operations):",
+        "    INTELLICHEM_CONTROL_ENABLED    Enable control features (default: false)",
+        "    INTELLICHEM_CONTROL_RATE_LIMIT Min seconds between commands (default: 5)",
         "",
         "  Logging:",
         "    LOG_LEVEL            DEBUG, INFO, WARNING, ERROR (default: INFO)",

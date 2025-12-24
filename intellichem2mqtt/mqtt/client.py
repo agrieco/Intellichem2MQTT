@@ -3,13 +3,16 @@
 import asyncio
 import logging
 import json
-from typing import Optional, Any
+from typing import Optional, Any, AsyncIterator, Callable, Awaitable
 
 import aiomqtt
 
 from ..config import MQTTConfig
 
 logger = logging.getLogger(__name__)
+
+# Type alias for message callback
+MessageCallback = Callable[[str, bytes], Awaitable[None]]
 
 
 class MQTTClient:
@@ -181,3 +184,91 @@ class MQTTClient:
             Full topic string
         """
         return "/".join([self.config.topic_prefix, *parts])
+
+    def command_topic(self, command: str) -> str:
+        """Build a command topic.
+
+        Args:
+            command: Command name (e.g., 'ph_setpoint')
+
+        Returns:
+            Full command topic string
+        """
+        return self.topic("intellichem", "set", command)
+
+    async def subscribe_commands(self) -> None:
+        """Subscribe to all command topics.
+
+        Subscribes to: {prefix}/intellichem/set/#
+        """
+        topic = self.topic("intellichem", "set", "#")
+        await self.subscribe(topic)
+        logger.info(f"Subscribed to command topics: {topic}")
+
+    @property
+    def messages(self) -> AsyncIterator[aiomqtt.Message]:
+        """Get an async iterator for incoming messages.
+
+        Returns:
+            Async iterator yielding aiomqtt.Message objects
+
+        Raises:
+            ConnectionError: If not connected
+        """
+        if not self._client or not self._connected:
+            raise ConnectionError("Not connected to MQTT broker")
+
+        return self._client.messages
+
+    async def message_loop(
+        self,
+        callback: MessageCallback,
+        filter_prefix: Optional[str] = None,
+    ) -> None:
+        """Run a message processing loop.
+
+        Continuously receives messages and calls the callback for each.
+        Only returns when disconnected or cancelled.
+
+        Args:
+            callback: Async function called with (topic, payload) for each message
+            filter_prefix: Optional topic prefix to filter messages
+        """
+        if not self._client or not self._connected:
+            raise ConnectionError("Not connected to MQTT broker")
+
+        logger.debug("Starting MQTT message loop")
+
+        async for message in self._client.messages:
+            topic = str(message.topic)
+
+            # Skip messages that don't match filter
+            if filter_prefix and not topic.startswith(filter_prefix):
+                continue
+
+            # Get payload as bytes
+            if isinstance(message.payload, bytes):
+                payload = message.payload
+            else:
+                payload = str(message.payload).encode()
+
+            logger.debug(f"Received message on {topic}: {payload[:100]}")
+
+            try:
+                await callback(topic, payload)
+            except Exception as e:
+                logger.error(f"Error processing message on {topic}: {e}")
+
+    def extract_command_name(self, topic: str) -> Optional[str]:
+        """Extract the command name from a command topic.
+
+        Args:
+            topic: Full topic string (e.g., 'intellichem2mqtt/intellichem/set/ph_setpoint')
+
+        Returns:
+            Command name (e.g., 'ph_setpoint') or None if not a command topic
+        """
+        prefix = self.topic("intellichem", "set") + "/"
+        if topic.startswith(prefix):
+            return topic[len(prefix):]
+        return None
