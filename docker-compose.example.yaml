@@ -18,8 +18,8 @@ services:
       # - SERIAL_BAUDRATE=9600  # Default: 9600
 
       # IntelliChem settings
+      - INTELLICHEM_POLL_INTERVAL=60    # Poll interval in seconds (default: 60)
       # - INTELLICHEM_ADDRESS=144        # Default: 144 (range: 144-158)
-      # - INTELLICHEM_POLL_INTERVAL=30   # Default: 30 seconds
       # - INTELLICHEM_TIMEOUT=5          # Default: 5 seconds
 
       # MQTT settings (required) - UPDATE THESE

@@ -148,6 +148,13 @@ class IntelliChem2MQTT:
                         self._stats["successful_polls"] += 1
                         self._stats["last_success"] = datetime.now()
 
+                        # Log compact status at INFO level
+                        logger.info(
+                            f"pH={state.ph.level:.2f} ORP={state.orp.level}mV "
+                            f"T={state.temperature}°F LSI={state.lsi:.2f} "
+                            f"flow={'Y' if state.flow_detected else 'N'}"
+                        )
+
                         if self._mqtt_enabled:
                             # Publish to MQTT
                             await self.publisher.publish_state(state)
@@ -156,14 +163,8 @@ class IntelliChem2MQTT:
                             if was_comms_lost:
                                 await self.publisher.publish_comms_restored()
                                 was_comms_lost = False
-
-                            logger.debug(
-                                f"pH={state.ph.level:.2f}, "
-                                f"ORP={state.orp.level}mV, "
-                                f"temp={state.temperature}°F"
-                            )
                         else:
-                            # Log-only mode - print values to console
+                            # Log-only mode - print detailed values
                             self._log_state(state)
                     else:
                         logger.warning("Failed to parse status response")

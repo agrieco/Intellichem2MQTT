@@ -57,7 +57,7 @@ class IntelliChemConfig(BaseModel):
         description="IntelliChem address on RS-485 bus"
     )
     poll_interval: int = Field(
-        default=30,
+        default=60,
         ge=5,
         le=300,
         description="Polling interval in seconds"
