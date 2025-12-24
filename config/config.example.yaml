@@ -1,0 +1,74 @@
+# Intellichem2MQTT Configuration
+# Copy this file to /etc/intellichem2mqtt/config.yaml and customize
+
+# Serial port configuration for RS-485 connection
+serial:
+  # Serial port device path
+  # Common values: /dev/ttyUSB0, /dev/ttyAMA0, /dev/serial0
+  port: /dev/ttyUSB0
+
+  # Baud rate (IntelliChem uses 9600)
+  baudrate: 9600
+
+  # Data bits (8)
+  databits: 8
+
+  # Parity (none, even, odd)
+  parity: none
+
+  # Stop bits (1 or 2)
+  stopbits: 1
+
+# IntelliChem device configuration
+intellichem:
+  # IntelliChem address on RS-485 bus (144-158)
+  # Default is 144 for the first (and usually only) IntelliChem
+  address: 144
+
+  # How often to poll for status (seconds)
+  # Recommended: 30 seconds
+  poll_interval: 30
+
+  # Response timeout (seconds)
+  # If no response within this time, mark as communication lost
+  timeout: 5
+
+# MQTT broker configuration
+mqtt:
+  # MQTT broker hostname or IP address
+  # For Home Assistant, this is usually the HA hostname
+  host: homeassistant.local
+
+  # MQTT broker port (default: 1883, TLS: 8883)
+  port: 1883
+
+  # MQTT username (leave empty if no authentication)
+  username: ""
+
+  # MQTT password (leave empty if no authentication)
+  # You can also use environment variables: $MQTT_PASSWORD
+  password: ""
+
+  # MQTT client identifier
+  client_id: intellichem2mqtt
+
+  # Home Assistant MQTT discovery prefix
+  # Default: homeassistant (don't change unless you modified HA's config)
+  discovery_prefix: homeassistant
+
+  # Topic prefix for state publishing
+  topic_prefix: intellichem2mqtt
+
+  # Retain MQTT messages
+  retain: true
+
+  # QoS level (0, 1, or 2)
+  qos: 1
+
+# Logging configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+
+  # Log file path (optional, leave empty for stdout only)
+  # file: /var/log/intellichem2mqtt.log

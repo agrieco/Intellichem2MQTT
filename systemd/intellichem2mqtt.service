@@ -1,0 +1,44 @@
+[Unit]
+Description=IntelliChem to MQTT Bridge
+Documentation=https://github.com/yourusername/intellichem2mqtt
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+
+# Working directory
+WorkingDirectory=/opt/intellichem2mqtt
+
+# Run the application
+ExecStart=/opt/intellichem2mqtt/venv/bin/python -m intellichem2mqtt -c /etc/intellichem2mqtt/config.yaml
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Stop timeout
+TimeoutStopSec=30
+
+# Environment variables (optional)
+# Environment=MQTT_PASSWORD=your_password
+
+# Grant access to USB serial devices
+SupplementaryGroups=dialout
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=intellichem2mqtt
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/log
+
+[Install]
+WantedBy=multi-user.target

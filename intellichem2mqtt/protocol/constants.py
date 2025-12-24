@@ -1,0 +1,73 @@
+"""Protocol constants for Pentair IntelliChem RS-485 communication."""
+
+# Packet structure
+PREAMBLE = bytes([255, 0, 255])
+HEADER_START_BYTE = 165
+HEADER_SUB_BYTE = 0
+
+# Device addresses
+INTELLICHEM_ADDRESS_MIN = 144
+INTELLICHEM_ADDRESS_MAX = 158
+DEFAULT_INTELLICHEM_ADDRESS = 144
+
+# Controller address (we act as the controller)
+CONTROLLER_ADDRESS = 16
+
+# Action codes
+ACTION_STATUS_REQUEST = 210   # Request IntelliChem status
+ACTION_STATUS_RESPONSE = 18   # IntelliChem status response
+ACTION_CONFIG_COMMAND = 146   # Configuration command to IntelliChem
+ACTION_OCP_BROADCAST = 147    # OCP broadcast (Touch controllers)
+
+# Payload lengths
+STATUS_PAYLOAD_LENGTH = 41
+
+# Serial port settings
+DEFAULT_BAUDRATE = 9600
+DEFAULT_DATABITS = 8
+DEFAULT_PARITY = "N"
+DEFAULT_STOPBITS = 1
+
+# Timing
+DEFAULT_POLL_INTERVAL = 30  # seconds
+DEFAULT_TIMEOUT = 5  # seconds
+COMMS_LOST_THRESHOLD = 30  # seconds without response
+
+# Alarm bit masks (byte 32)
+ALARM_FLOW = 0x01
+ALARM_PH = 0x06
+ALARM_ORP = 0x18
+ALARM_PH_TANK_EMPTY = 0x20
+ALARM_ORP_TANK_EMPTY = 0x40
+ALARM_PROBE_FAULT = 0x80
+
+# Warning bit masks (byte 33)
+WARNING_PH_LOCKOUT = 0x01
+WARNING_PH_DAILY_LIMIT = 0x02
+WARNING_ORP_DAILY_LIMIT = 0x04
+WARNING_INVALID_SETUP = 0x08
+WARNING_CHLORINATOR_COMM = 0x10
+
+# Dosing status masks (byte 34)
+DOSING_PH_TYPE_MASK = 0x03
+DOSING_ORP_TYPE_MASK = 0x0C
+DOSING_PH_STATUS_MASK = 0x30
+DOSING_ORP_STATUS_MASK = 0xC0
+
+# Status flags masks (byte 35)
+STATUS_MANUAL_DOSING = 0x08
+STATUS_USE_INTELLICHLOR = 0x10
+STATUS_HMI_ADVANCED = 0x20
+STATUS_PH_SUPPLY_ACID = 0x40
+STATUS_COMMS_LOST = 0x80
+
+# Tank levels
+TANK_LEVEL_MIN = 0
+TANK_LEVEL_MAX = 7
+TANK_CAPACITY = 6
+
+# Chemistry ranges
+PH_MIN = 0.0
+PH_MAX = 14.0
+ORP_MIN = 0
+ORP_MAX = 2000
