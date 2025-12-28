@@ -38,9 +38,9 @@ A standalone ESP32-C3 firmware that bridges Pentair IntelliChem pool chemistry c
                               │   ESP32-C3      │
                               │   DevKitM-1     │
                               │                 │
-    ┌───────────────┐         │  GPIO17 (TX)────┼──────┐
-    │               │         │  GPIO18 (RX)────┼────┐ │
-    │  IntelliChem  │         │  GPIO19 (DE)────┼──┐ │ │
+    ┌───────────────┐         │  GPIO4 (TX)─────┼──────┐
+    │               │         │  GPIO5 (RX)─────┼────┐ │
+    │  IntelliChem  │         │  GPIO6 (DE)─────┼──┐ │ │
     │               │         │                 │  │ │ │
     │   RS-485      │         │  3.3V───────────┼──│─│─│──┐
     │   A (+)  ─────┼─────────│  GND────────────┼──│─│─│──│──┐
@@ -225,10 +225,16 @@ Navigate to: **IntelliChem2MQTT Configuration → UART Configuration**
 | Setting | Default | Description |
 |---------|---------|-------------|
 | UART Port | 1 | UART peripheral (0, 1, or 2) |
-| TX GPIO | 17 | GPIO for UART TX → MAX485 DI |
-| RX GPIO | 18 | GPIO for UART RX ← MAX485 RO |
-| DE GPIO | 19 | GPIO for RS-485 direction control |
+| TX GPIO | 4 | GPIO for UART TX → MAX485 DI |
+| RX GPIO | 5 | GPIO for UART RX ← MAX485 RO |
+| DE GPIO | 6 | GPIO for RS-485 direction control |
 | Baud Rate | 9600 | Must be 9600 for IntelliChem |
+
+**ESP32-C3 GPIO Notes:**
+- GPIO 0-10: Safe for general use
+- GPIO 11-17: May be used by flash (avoid)
+- GPIO 18-19: USB D-/D+ (do NOT use)
+- GPIO 20-21: UART0 console
 
 ---
 

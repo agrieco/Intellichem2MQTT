@@ -33,25 +33,28 @@ menu "IntelliChem2MQTT Configuration"
 
         config UART_TX_PIN
             int "UART TX GPIO"
-            default 17
-            range 0 48
+            default 4
+            range 0 21
             help
                 GPIO pin for UART TX (connect to RS-485 DI)
+                ESP32-C3 safe pins: 0-10, 18-19 are USB, 11-17 may be flash
 
         config UART_RX_PIN
             int "UART RX GPIO"
-            default 18
-            range 0 48
+            default 5
+            range 0 21
             help
                 GPIO pin for UART RX (connect to RS-485 RO)
+                ESP32-C3 safe pins: 0-10, 18-19 are USB, 11-17 may be flash
 
         config RS485_DE_PIN
             int "RS-485 DE/RE GPIO"
-            default 19
-            range -1 48
+            default 6
+            range -1 21
             help
                 GPIO pin for RS-485 direction control (connect to DE/RE)
                 Set to -1 to disable (for auto-direction transceivers)
+                ESP32-C3 safe pins: 0-10
 
         config UART_BAUD_RATE
             int "Baud Rate"

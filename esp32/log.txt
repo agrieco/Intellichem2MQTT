@@ -1,0 +1,1167 @@
+Executing action: flash
+Serial port /dev/cu.usbmodem11101
+Connecting...
+Detecting chip type... ESP32-C3
+Running ninja in directory /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build
+Executing "ninja flash"...
+[1/5] cd /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build/esp-idf/esptool_py && /Users/agrieco/.espressif/python_env/idf5.3_py3.11_env/bin/python /Users/agrieco/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build/partition_table/partition-table.bin /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build/intellichem_esp32.bin
+intellichem_esp32.bin binary size 0xf7ef0 bytes. Smallest app partition is 0x100000 bytes. 0x8110 bytes (3%) free.
+Warning: The smallest app partition is nearly full (3% free space left)!
+[2/5] Performing build step for 'bootloader'
+[1/1] cd /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build/bootloader/esp-idf/esptool_py && /Users/agrieco/.espressif/python_env/idf5.3_py3.11_env/bin/python /Users/agrieco/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build/bootloader/bootloader.bin
+Bootloader binary size 0x5180 bytes. 0x2e80 bytes (36%) free.
+[3/5] No install step for 'bootloader'
+[4/5] Completed 'bootloader'
+[4/5] cd /Users/agrieco/esp/esp-idf/components/esptool_py && /opt/homebrew/bin/cmake -D IDF_PATH=/Users/agrieco/esp/esp-idf -D "SERIAL_TOOL=/Users/agrieco/.espressif/python_env/idf5.3_py3.11_env/bin/python;;/Users/agrieco/esp/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32c3" -D "SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args" -D WORKING_DIRECTORY=/Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build -P /Users/agrieco/esp/esp-idf/components/esptool_py/run_serial_tool.cmake
+esptool.py --chip esp32c3 -p /dev/cu.usbmodem11101 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x0 bootloader/bootloader.bin 0x10000 intellichem_esp32.bin 0x8000 partition_table/partition-table.bin
+esptool.py v4.10.0
+Serial port /dev/cu.usbmodem11101
+Connecting...
+Chip is ESP32-C3 (QFN32) (revision v0.4)
+Features: WiFi, BLE, Embedded Flash 4MB (XMC)
+Crystal is 40MHz
+USB mode: USB-Serial/JTAG
+MAC: 98:88:e0:f1:83:3c
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 460800
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00000000 to 0x00005fff...
+Flash will be erased from 0x00010000 to 0x00107fff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+SHA digest in image updated
+Compressed 20864 bytes to 12759...
+Writing at 0x00000000... (100 %)
+Wrote 20864 bytes (12759 compressed) at 0x00000000 in 0.3 seconds (effective 562.4 kbit/s)...
+Hash of data verified.
+Compressed 1015536 bytes to 579325...
+Writing at 0x00010000... (2 %)
+Writing at 0x0001e1fa... (5 %)
+Writing at 0x00029e0d... (8 %)
+Writing at 0x0002f17f... (11 %)
+Writing at 0x000350b3... (13 %)
+Writing at 0x0003ed08... (16 %)
+Writing at 0x00045633... (19 %)
+Writing at 0x0004cfc8... (22 %)
+Writing at 0x000551d8... (25 %)
+Writing at 0x0005cd69... (27 %)
+Writing at 0x00063809... (30 %)
+Writing at 0x0006a42a... (33 %)
+Writing at 0x00070c43... (36 %)
+Writing at 0x00077953... (38 %)
+Writing at 0x0007db87... (41 %)
+Writing at 0x00084584... (44 %)
+Writing at 0x0008a60e... (47 %)
+Writing at 0x00090451... (50 %)
+Writing at 0x00096684... (52 %)
+Writing at 0x0009cc68... (55 %)
+Writing at 0x000a2dc4... (58 %)
+Writing at 0x000a8ca3... (61 %)
+Writing at 0x000af256... (63 %)
+Writing at 0x000b5ed2... (66 %)
+Writing at 0x000bceae... (69 %)
+Writing at 0x000c3ce0... (72 %)
+Writing at 0x000cae28... (75 %)
+Writing at 0x000d125b... (77 %)
+Writing at 0x000d74f1... (80 %)
+Writing at 0x000dda77... (83 %)
+Writing at 0x000e3b0d... (86 %)
+Writing at 0x000e95a6... (88 %)
+Writing at 0x000f1d06... (91 %)
+Writing at 0x000f8228... (94 %)
+Writing at 0x000ff0e0... (97 %)
+Writing at 0x00105794... (100 %)
+Wrote 1015536 bytes (579325 compressed) at 0x00010000 in 7.7 seconds (effective 1057.8 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 103...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.0 seconds (effective 548.8 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+Executing action: monitor
+Running idf_monitor in directory /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32
+Executing "/Users/agrieco/.espressif/python_env/idf5.3_py3.11_env/bin/python /Users/agrieco/esp/esp-idf/tools/idf_monitor.py -p /dev/cu.usbmodem11101 -b 115200 --toolchain-prefix riscv32-esp-elf- --target esp32c3 --revision 3 --decode-panic backtrace /Users/agrieco/code/Intellichem2MQTT/esp32/intellichem_esp32/build/intellichem_esp32.elf -m '/Users/agrieco/.espressif/python_env/idf5.3_py3.11_env/bin/python' '/Users/agrieco/esp/esp-idf/tools/idf.py'"...
+[0;32mI (252) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x15 (USB_UART_CHIP_RESET),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x403d0332
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (25) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (32) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (37) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;32mI (41) boot: Enabling RNG early entropy source...[0m
+[0;32mI (47) boot: Partition Table:[0m
+[0;32mI (50) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (58) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (65) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (73) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (80) boot: End of partition table[0m
+[0;32mI (84) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (119) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (122) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (128) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (251) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (270) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (271) boot: Disabling RNG early entropy source...[0m
+[0;32mI (282) cpu_start: Unicore app[0m
+[0;32mI (291) cpu_start: Pro cpu start user code[0m
+[0;32mI (291) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (291) app_init: Application information:[0m
+[0;32mI (294) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (299) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (306) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (312) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (317) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (322) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (326) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (331) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (336) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (343) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (349) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (356) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (363) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (371) spi_flash: detected chip: generic[0m
+[0;32mI (374) spi_flash: flash io: dio[0m
+[0;33mW (378) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (392) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (398) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (405) main_task: Started on CPU0[0m
+[0;32mI (405) main_task: Calling app_main()[0m
+[0;32mI (405) main: ========================================[0m
+[0;32mI (415) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (415) main: ========================================[0m
+[0;32mI (425) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (425) main: [0m
+[0;32mI (435) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (435) main: Message build: PASS[0m
+[0;32mI (445) main: Checksum validation: PASS[0m
+[0;32mI (445) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (455) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (455) main: Protocol tests: ALL PASSED[0m
+[0;32mI (465) main: [0m
+[0;32mI (465) main: Creating FreeRTOS queues...[0m
+[0;32mI (475) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (475) main: Starting serial task...[0m
+[0;32mI (485) serial: Serial task started[0m
+[0;32mI (485) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380000
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380102
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380000
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (355) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (362) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380000
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380000
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m
+ESP-ROM:esp32c3-api1-20210207
+Build:Feb  7 2021
+rst:0x8 (TG1WDT_SYS_RST),boot:0xd (SPI_FAST_FLASH_BOOT)
+Saved PC:0x40380104
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fcd5820,len:0x1738
+load:0x403cc710,len:0xb9c
+load:0x403ce710,len:0x2e4c
+entry 0x403cc71a
+[0;32mI (24) boot: ESP-IDF v5.3 2nd stage bootloader[0m
+[0;32mI (24) boot: compile time Dec 28 2025 14:39:24[0m
+[0;32mI (24) boot: chip revision: v0.4[0m
+[0;32mI (27) boot.esp32c3: SPI Speed      : 80MHz[0m
+[0;32mI (31) boot.esp32c3: SPI Mode       : DIO[0m
+[0;32mI (36) boot.esp32c3: SPI Flash Size : 2MB[0m
+[0;33mW (41) boot.esp32c3: PRO CPU has been reset by WDT.[0m
+[0;32mI (46) boot: Enabling RNG early entropy source...[0m
+[0;32mI (52) boot: Partition Table:[0m
+[0;32mI (55) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (63) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (70) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (78) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (85) boot: End of partition table[0m
+[0;32mI (89) esp_image: segment 0: paddr=00010020 vaddr=3c0c0020 size=29d64h (171364) map[0m
+[0;32mI (124) esp_image: segment 1: paddr=00039d8c vaddr=3fc93e00 size=02d90h ( 11664) load[0m
+[0;32mI (127) esp_image: segment 2: paddr=0003cb24 vaddr=40380000 size=034f4h ( 13556) load[0m
+[0;32mI (133) esp_image: segment 3: paddr=00040020 vaddr=42000020 size=b76d0h (751312) map[0m
+[0;32mI (256) esp_image: segment 4: paddr=000f76f8 vaddr=403834f4 size=107cch ( 67532) load[0m
+[0;32mI (275) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (276) boot: Disabling RNG early entropy source...[0m
+[0;32mI (287) cpu_start: Unicore app[0m
+[0;32mI (296) cpu_start: Pro cpu start user code[0m
+[0;32mI (296) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (296) app_init: Application information:[0m
+[0;32mI (299) app_init: Project name:     intellichem_esp32[0m
+[0;32mI (304) app_init: App version:      v1.0.1-10-gadb52e4-dirty[0m
+[0;32mI (311) app_init: Compile time:     Dec 28 2025 14:39:18[0m
+[0;32mI (317) app_init: ELF file SHA256:  09975891d...[0m
+[0;32mI (322) app_init: ESP-IDF:          v5.3[0m
+[0;32mI (327) efuse_init: Min chip rev:     v0.3[0m
+[0;32mI (331) efuse_init: Max chip rev:     v1.99 [0m
+[0;32mI (336) efuse_init: Chip rev:         v0.4[0m
+[0;32mI (341) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (348) heap_init: At 3FC9B700 len 00024900 (146 KiB): RAM[0m
+[0;32mI (354) heap_init: At 3FCC0000 len 0001C710 (113 KiB): Retention RAM[0m
+[0;32mI (361) heap_init: At 3FCDC710 len 00002950 (10 KiB): Retention RAM[0m
+[0;32mI (368) heap_init: At 50000200 len 00001DE8 (7 KiB): RTCRAM[0m
+[0;32mI (376) spi_flash: detected chip: generic[0m
+[0;32mI (379) spi_flash: flash io: dio[0m
+[0;33mW (383) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (397) sleep: Configure to isolate all GPIO pins in sleep state[0m
+[0;32mI (403) sleep: Enable automatic switching of GPIO sleep configuration[0m
+[0;32mI (411) main_task: Started on CPU0[0m
+[0;32mI (411) main_task: Calling app_main()[0m
+[0;32mI (411) main: ========================================[0m
+[0;32mI (421) main: IntelliChem2MQTT ESP32[0m
+[0;32mI (421) main: ========================================[0m
+[0;32mI (431) main: Chip: esp32c3, 1 cores, WiFi/BLE[0m
+[0;32mI (431) main: [0m
+[0;32mI (441) main: === Running Protocol Layer Tests ===[0m
+[0;32mI (441) main: Message build: PASS[0m
+[0;32mI (451) main: Checksum validation: PASS[0m
+[0;32mI (451) parser: Status parsed: pH=7.24 ORP=700mV temp=82°F fw=1.000[0m
+[0;32mI (461) main: Status parsing: PASS (pH=7.24, ORP=700, temp=82)[0m
+[0;32mI (461) main: Protocol tests: ALL PASSED[0m
+[0;32mI (471) main: [0m
+[0;32mI (471) main: Creating FreeRTOS queues...[0m
+[0;32mI (481) main: Queues created: state=0x3fc9f0f8 command=0x3fc9f230[0m
+[0;32mI (481) main: Starting serial task...[0m
+[0;32mI (491) serial: Serial task started[0m
+[0;32mI (491) buffer: Buffer initialized, capacity=512 bytes[0m

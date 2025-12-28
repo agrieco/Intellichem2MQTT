@@ -16,7 +16,7 @@
 
 // GPIO for RS-485 DE/RE pin (-1 to disable for auto-direction transceivers)
 #ifndef CONFIG_RS485_DE_PIN
-#define CONFIG_RS485_DE_PIN 19
+#define CONFIG_RS485_DE_PIN 6
 #endif
 
 // ============================================================================

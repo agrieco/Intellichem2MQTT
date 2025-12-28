@@ -22,11 +22,11 @@
 #endif
 
 #ifndef CONFIG_UART_TX_PIN
-#define CONFIG_UART_TX_PIN 17
+#define CONFIG_UART_TX_PIN 4
 #endif
 
 #ifndef CONFIG_UART_RX_PIN
-#define CONFIG_UART_RX_PIN 18
+#define CONFIG_UART_RX_PIN 5
 #endif
 
 #ifndef CONFIG_UART_BAUD_RATE
