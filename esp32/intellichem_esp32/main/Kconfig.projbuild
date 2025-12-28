@@ -1,0 +1,132 @@
+menu "IntelliChem2MQTT Configuration"
+
+    menu "IntelliChem Settings"
+        config INTELLICHEM_ADDRESS
+            int "IntelliChem Address"
+            default 144
+            range 144 158
+            help
+                RS-485 address of IntelliChem controller (144-158)
+
+        config INTELLICHEM_POLL_INTERVAL
+            int "Poll Interval (seconds)"
+            default 30
+            range 5 300
+            help
+                How often to request status from IntelliChem
+
+        config INTELLICHEM_TIMEOUT_MS
+            int "Response Timeout (milliseconds)"
+            default 5000
+            range 1000 30000
+            help
+                How long to wait for IntelliChem response
+    endmenu
+
+    menu "Serial Port Settings"
+        config UART_PORT_NUM
+            int "UART Port Number"
+            default 1
+            range 0 2
+            help
+                UART port to use for RS-485 communication
+
+        config UART_TX_PIN
+            int "UART TX GPIO"
+            default 17
+            range 0 48
+            help
+                GPIO pin for UART TX (connect to RS-485 DI)
+
+        config UART_RX_PIN
+            int "UART RX GPIO"
+            default 18
+            range 0 48
+            help
+                GPIO pin for UART RX (connect to RS-485 RO)
+
+        config RS485_DE_PIN
+            int "RS-485 DE/RE GPIO"
+            default 19
+            range -1 48
+            help
+                GPIO pin for RS-485 direction control (connect to DE/RE)
+                Set to -1 to disable (for auto-direction transceivers)
+
+        config UART_BAUD_RATE
+            int "Baud Rate"
+            default 9600
+            help
+                Serial baud rate (9600 for IntelliChem)
+    endmenu
+
+    menu "WiFi Settings"
+        config WIFI_SSID
+            string "WiFi SSID"
+            default "MyNetwork"
+            help
+                WiFi network name
+
+        config WIFI_PASSWORD
+            string "WiFi Password"
+            default "MyPassword"
+            help
+                WiFi network password
+    endmenu
+
+    menu "MQTT Settings"
+        config MQTT_BROKER_HOST
+            string "MQTT Broker Host"
+            default "192.168.1.100"
+            help
+                MQTT broker hostname or IP address
+
+        config MQTT_BROKER_PORT
+            int "MQTT Broker Port"
+            default 1883
+            range 1 65535
+            help
+                MQTT broker port
+
+        config MQTT_USERNAME
+            string "MQTT Username"
+            default ""
+            help
+                MQTT username (leave empty for anonymous)
+
+        config MQTT_PASSWORD
+            string "MQTT Password"
+            default ""
+            help
+                MQTT password
+
+        config MQTT_BASE_TOPIC
+            string "MQTT Base Topic"
+            default "intellichem"
+            help
+                Base topic for all MQTT messages
+
+        config HA_DISCOVERY_ENABLED
+            bool "Enable Home Assistant Discovery"
+            default y
+            help
+                Publish Home Assistant auto-discovery messages
+
+        config HA_DISCOVERY_PREFIX
+            string "HA Discovery Prefix"
+            default "homeassistant"
+            depends on HA_DISCOVERY_ENABLED
+            help
+                Home Assistant discovery topic prefix
+    endmenu
+
+    menu "Logging"
+        config LOG_LEVEL_PROTOCOL
+            int "Protocol Log Level"
+            default 4
+            range 0 5
+            help
+                Log level for protocol components (0=None, 1=Error, 2=Warn, 3=Info, 4=Debug, 5=Verbose)
+    endmenu
+
+endmenu

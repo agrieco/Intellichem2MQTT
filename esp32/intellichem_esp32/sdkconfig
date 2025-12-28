@@ -447,6 +447,54 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# IntelliChem2MQTT Configuration
+#
+
+#
+# IntelliChem Settings
+#
+CONFIG_INTELLICHEM_ADDRESS=144
+CONFIG_INTELLICHEM_POLL_INTERVAL=30
+CONFIG_INTELLICHEM_TIMEOUT_MS=5000
+# end of IntelliChem Settings
+
+#
+# Serial Port Settings
+#
+CONFIG_UART_PORT_NUM=1
+CONFIG_UART_TX_PIN=17
+CONFIG_UART_RX_PIN=18
+CONFIG_RS485_DE_PIN=19
+CONFIG_UART_BAUD_RATE=9600
+# end of Serial Port Settings
+
+#
+# WiFi Settings
+#
+CONFIG_WIFI_SSID="MyNetwork"
+CONFIG_WIFI_PASSWORD="MyPassword"
+# end of WiFi Settings
+
+#
+# MQTT Settings
+#
+CONFIG_MQTT_BROKER_HOST="192.168.1.100"
+CONFIG_MQTT_BROKER_PORT=1883
+CONFIG_MQTT_USERNAME=""
+CONFIG_MQTT_PASSWORD=""
+CONFIG_MQTT_BASE_TOPIC="intellichem"
+CONFIG_HA_DISCOVERY_ENABLED=y
+CONFIG_HA_DISCOVERY_PREFIX="homeassistant"
+# end of MQTT Settings
+
+#
+# Logging
+#
+CONFIG_LOG_LEVEL_PROTOCOL=4
+# end of Logging
+# end of IntelliChem2MQTT Configuration
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEBUG=y
