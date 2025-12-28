@@ -20,6 +20,7 @@
 #include "protocol/parser.h"
 #include "models/state.h"
 #include "serial/serial_task.h"
+#include "mqtt/mqtt_task.h"
 
 static const char *TAG = "main";
 
@@ -100,46 +101,6 @@ static bool run_protocol_tests(void) {
     return all_passed;
 }
 
-// ============================================================================
-// State Monitor Task
-// ============================================================================
-
-static void state_monitor_task(void *pvParameters)
-{
-    ESP_LOGI(TAG, "State monitor task started");
-
-    intellichem_state_t state;
-
-    while (1) {
-        // Wait for state update from serial task
-        if (xQueueReceive(s_state_queue, &state, pdMS_TO_TICKS(5000)) == pdTRUE) {
-            ESP_LOGI(TAG, "=== State Update Received ===");
-            ESP_LOGI(TAG, "pH: %.2f (setpoint %.2f) tank=%d%%",
-                     state.ph.level, state.ph.setpoint,
-                     (int)tank_level_percent(state.ph.tank_level));
-            ESP_LOGI(TAG, "ORP: %.0fmV (setpoint %.0fmV) tank=%d%%",
-                     state.orp.level, state.orp.setpoint,
-                     (int)tank_level_percent(state.orp.tank_level));
-            ESP_LOGI(TAG, "Temp: %d°F  Flow: %s  Firmware: %s",
-                     state.temperature,
-                     state.flow_detected ? "OK" : "ALARM",
-                     state.firmware);
-
-            if (alarms_any_active(&state.alarms)) {
-                ESP_LOGW(TAG, "ALARMS ACTIVE!");
-            }
-            if (warnings_any_active(&state.warnings)) {
-                ESP_LOGW(TAG, "WARNINGS ACTIVE!");
-            }
-        } else {
-            // Timeout - log stats
-            uint32_t polls, responses, errors;
-            serial_task_get_stats(&polls, &responses, &errors);
-            ESP_LOGI(TAG, "Waiting for state... (polls=%lu responses=%lu errors=%lu)",
-                     (unsigned long)polls, (unsigned long)responses, (unsigned long)errors);
-        }
-    }
-}
 
 // ============================================================================
 // Main Entry Point
@@ -189,9 +150,16 @@ void app_main(void)
     }
     ESP_LOGI(TAG, "Serial task started successfully");
 
-    // Create state monitor task
-    ESP_LOGI(TAG, "Starting state monitor task...");
-    xTaskCreate(state_monitor_task, "state_mon", 4096, NULL, 3, NULL);
+    // Start MQTT task
+    ESP_LOGI(TAG, "Starting MQTT task...");
+    ret = mqtt_task_start(s_state_queue, s_command_queue);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start MQTT task: %s", esp_err_to_name(ret));
+        // Continue without MQTT - serial task will still work
+        ESP_LOGW(TAG, "Running in serial-only mode (no MQTT)");
+    } else {
+        ESP_LOGI(TAG, "MQTT task started successfully");
+    }
 
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "System initialized, waiting for data...");
@@ -204,6 +172,10 @@ void app_main(void)
     ESP_LOGI(TAG, "  UART port: %d (TX=%d, RX=%d)",
              CONFIG_UART_PORT_NUM, CONFIG_UART_TX_PIN, CONFIG_UART_RX_PIN);
     ESP_LOGI(TAG, "  RS-485 DE pin: %d", CONFIG_RS485_DE_PIN);
+    ESP_LOGI(TAG, "  WiFi SSID: %s", CONFIG_WIFI_SSID);
+    ESP_LOGI(TAG, "  MQTT broker: %s", CONFIG_MQTT_BROKER_URI);
+    ESP_LOGI(TAG, "  MQTT topic prefix: %s", CONFIG_MQTT_TOPIC_PREFIX);
+    ESP_LOGI(TAG, "  Control enabled: %s", CONFIG_CONTROL_ENABLED ? "yes" : "no");
     ESP_LOGI(TAG, "");
 
     // Main loop - just keep running
@@ -213,8 +185,17 @@ void app_main(void)
         // Log periodic status
         uint32_t polls, responses, errors;
         serial_task_get_stats(&polls, &responses, &errors);
-        ESP_LOGI(TAG, "Heartbeat: polls=%lu responses=%lu errors=%lu running=%s",
+
+        uint32_t states_published;
+        bool discovery_sent;
+        uint32_t reconnections;
+        mqtt_task_get_stats(&states_published, &discovery_sent, &reconnections);
+
+        ESP_LOGI(TAG, "Heartbeat: serial[polls=%lu resp=%lu err=%lu] mqtt[pub=%lu disc=%s reconn=%lu status=%s]",
                  (unsigned long)polls, (unsigned long)responses, (unsigned long)errors,
-                 serial_task_is_running() ? "yes" : "no");
+                 (unsigned long)states_published,
+                 discovery_sent ? "yes" : "no",
+                 (unsigned long)reconnections,
+                 mqtt_task_status_str(mqtt_task_get_status()));
     }
 }

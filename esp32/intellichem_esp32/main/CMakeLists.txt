@@ -8,9 +8,13 @@ idf_component_register(
         "protocol/parser.c"
         "serial/rs485.c"
         "serial/serial_task.c"
+        "mqtt/mqtt_task.c"
+        "mqtt/publisher.c"
+        "mqtt/discovery.c"
     INCLUDE_DIRS
         "."
         "protocol"
         "models"
         "serial"
+        "mqtt"
 )
