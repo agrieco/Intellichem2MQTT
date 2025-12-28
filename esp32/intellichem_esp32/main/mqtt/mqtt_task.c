@@ -391,9 +391,12 @@ static esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
 
-    // Initialize WiFi
+    // Initialize WiFi with default config
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    // Store WiFi config in RAM only (avoid NVS caching issues)
+    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
     // Register event handlers
     esp_event_handler_instance_t instance_any_id;
@@ -428,6 +431,59 @@ static esp_err_t wifi_init(void)
     ESP_LOGI(TAG, "WiFi initialized, SSID: %s (auth: %s, PMF: capable)",
              CONFIG_WIFI_SSID,
              strlen(CONFIG_WIFI_PASSWORD) > 0 ? "WPA/WPA2/WPA3" : "Open");
+
+    // Scan for APs to help diagnose connection issues
+    ESP_LOGI(TAG, "Scanning for WiFi networks...");
+    wifi_scan_config_t scan_config = {
+        .ssid = NULL,
+        .bssid = NULL,
+        .channel = 0,
+        .show_hidden = true,
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_time.active.min = 100,
+        .scan_time.active.max = 300,
+    };
+    esp_wifi_scan_start(&scan_config, true);  // Blocking scan
+
+    uint16_t ap_count = 0;
+    esp_wifi_scan_get_ap_num(&ap_count);
+    ESP_LOGI(TAG, "Found %d access points", ap_count);
+
+    if (ap_count > 0) {
+        wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * ap_count);
+        if (ap_list) {
+            esp_wifi_scan_get_ap_records(&ap_count, ap_list);
+            bool target_found = false;
+            for (int i = 0; i < ap_count && i < 10; i++) {
+                const char *auth_str = "UNKNOWN";
+                switch (ap_list[i].authmode) {
+                    case WIFI_AUTH_OPEN: auth_str = "OPEN"; break;
+                    case WIFI_AUTH_WEP: auth_str = "WEP"; break;
+                    case WIFI_AUTH_WPA_PSK: auth_str = "WPA"; break;
+                    case WIFI_AUTH_WPA2_PSK: auth_str = "WPA2"; break;
+                    case WIFI_AUTH_WPA_WPA2_PSK: auth_str = "WPA/WPA2"; break;
+                    case WIFI_AUTH_WPA3_PSK: auth_str = "WPA3"; break;
+                    case WIFI_AUTH_WPA2_WPA3_PSK: auth_str = "WPA2/WPA3"; break;
+                    default: break;
+                }
+                ESP_LOGI(TAG, "  [%d] SSID: %-20s CH: %2d RSSI: %4d AUTH: %s",
+                         i, ap_list[i].ssid, ap_list[i].primary,
+                         ap_list[i].rssi, auth_str);
+
+                if (strcmp((char *)ap_list[i].ssid, CONFIG_WIFI_SSID) == 0) {
+                    target_found = true;
+                    ESP_LOGI(TAG, "  >>> Target AP '%s' found on channel %d, RSSI %d, auth %s",
+                             CONFIG_WIFI_SSID, ap_list[i].primary, ap_list[i].rssi, auth_str);
+                }
+            }
+            if (!target_found) {
+                ESP_LOGE(TAG, "Target AP '%s' NOT FOUND in scan!", CONFIG_WIFI_SSID);
+            }
+            free(ap_list);
+        }
+    }
+
+    ESP_LOGI(TAG, "Starting connection to '%s'...", CONFIG_WIFI_SSID);
 
     // Wait for connection
     EventBits_t bits = xEventGroupWaitBits(
