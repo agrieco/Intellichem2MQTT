@@ -217,8 +217,29 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                 esp_wifi_connect();
                 break;
 
-            case WIFI_EVENT_STA_DISCONNECTED:
-                ESP_LOGW(TAG, "WiFi disconnected");
+            case WIFI_EVENT_STA_DISCONNECTED: {
+                wifi_event_sta_disconnected_t *disconn = (wifi_event_sta_disconnected_t *)event_data;
+                ESP_LOGW(TAG, "WiFi disconnected, reason: %d", disconn->reason);
+
+                // Log common disconnect reasons for debugging
+                switch (disconn->reason) {
+                    case WIFI_REASON_AUTH_EXPIRE:
+                    case WIFI_REASON_AUTH_FAIL:
+                    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
+                    case WIFI_REASON_HANDSHAKE_TIMEOUT:
+                        ESP_LOGE(TAG, "Auth failed - check password or try WPA2 instead of WPA3");
+                        break;
+                    case WIFI_REASON_NO_AP_FOUND:
+                        ESP_LOGE(TAG, "AP not found - check SSID and ensure 2.4GHz (not 5GHz)");
+                        break;
+                    case WIFI_REASON_ASSOC_FAIL:
+                        ESP_LOGE(TAG, "Association failed - AP may be full or rejecting");
+                        break;
+                    default:
+                        ESP_LOGW(TAG, "Disconnect reason code: %d", disconn->reason);
+                        break;
+                }
+
                 s_mqtt_connected = false;
                 s_status = MQTT_CONN_WIFI_CONNECTING;
 
@@ -234,6 +255,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                     xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
                 }
                 break;
+            }
 
             default:
                 ESP_LOGD(TAG, "WiFi event: %ld", event_id);
@@ -381,12 +403,21 @@ static esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, &instance_got_ip));
 
-    // Configure WiFi
+    // Configure WiFi - use flexible auth to support WPA/WPA2/WPA3
     wifi_config_t wifi_config = {
         .sta = {
             .ssid = CONFIG_WIFI_SSID,
             .password = CONFIG_WIFI_PASSWORD,
-            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            // Allow any auth mode (WPA, WPA2, WPA3, or open if no password)
+            .threshold.authmode = strlen(CONFIG_WIFI_PASSWORD) > 0 ? WIFI_AUTH_WPA_PSK : WIFI_AUTH_OPEN,
+            // Enable Protected Management Frames for WPA3 compatibility
+            .pmf_cfg = {
+                .capable = true,
+                .required = false,
+            },
+            // Scan all channels, not just the one from last connection
+            .scan_method = WIFI_ALL_CHANNEL_SCAN,
+            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
         },
     };
 
@@ -394,7 +425,9 @@ static esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "WiFi initialized, SSID: %s", CONFIG_WIFI_SSID);
+    ESP_LOGI(TAG, "WiFi initialized, SSID: %s (auth: %s, PMF: capable)",
+             CONFIG_WIFI_SSID,
+             strlen(CONFIG_WIFI_PASSWORD) > 0 ? "WPA/WPA2/WPA3" : "Open");
 
     // Wait for connection
     EventBits_t bits = xEventGroupWaitBits(
