@@ -1,6 +1,8 @@
 /**
  * @file mqtt_task.c
- * @brief MQTT task implementation for WiFi and MQTT client management
+ * @brief MQTT task implementation for MQTT client management
+ *
+ * WiFi provisioning is handled by wifi_prov module.
  */
 
 #include "mqtt_task.h"
@@ -8,15 +10,11 @@
 #include "discovery.h"
 #include "../serial/serial_task.h"
 #include "../protocol/commands.h"
+#include "../wifi/wifi_prov.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
 #include "esp_log.h"
-#include "esp_netif.h"
-#include "nvs_flash.h"
 #include "mqtt_client.h"
 
 #include <string.h>
@@ -38,9 +36,6 @@ static bool parse_mqtt_command(const char *topic, int topic_len,
 
 #define MQTT_TASK_STACK_SIZE    8192
 #define MQTT_TASK_PRIORITY      4
-#define WIFI_CONNECTED_BIT      BIT0
-#define WIFI_FAIL_BIT           BIT1
-#define WIFI_MAX_RETRY          10
 #define STATE_QUEUE_TIMEOUT_MS  1000
 
 // ============================================================================
@@ -50,7 +45,6 @@ static bool parse_mqtt_command(const char *topic, int topic_len,
 static TaskHandle_t s_task_handle = NULL;
 static QueueHandle_t s_state_queue = NULL;
 static QueueHandle_t s_command_queue = NULL;
-static EventGroupHandle_t s_wifi_event_group = NULL;
 static esp_mqtt_client_handle_t s_mqtt_client = NULL;
 
 static volatile bool s_running = false;
@@ -61,10 +55,6 @@ static volatile bool s_discovery_sent = false;
 // Statistics
 static uint32_t s_states_published = 0;
 static uint32_t s_reconnections = 0;
-static int s_wifi_retry_count = 0;
-
-// Flag to skip auto-connect on first STA_START (allows scan first)
-static volatile bool s_wifi_initialized = false;
 
 // ============================================================================
 // Command Parsing
@@ -206,78 +196,6 @@ static bool parse_mqtt_command(const char *topic, int topic_len,
 }
 
 // ============================================================================
-// WiFi Event Handlers
-// ============================================================================
-
-static void wifi_event_handler(void *arg, esp_event_base_t event_base,
-                               int32_t event_id, void *event_data)
-{
-    if (event_base == WIFI_EVENT) {
-        switch (event_id) {
-            case WIFI_EVENT_STA_START:
-                ESP_LOGI(TAG, "WiFi station started");
-                // Only auto-connect after initial setup (allows scan first)
-                if (s_wifi_initialized) {
-                    ESP_LOGI(TAG, "Reconnecting to WiFi...");
-                    s_status = MQTT_CONN_WIFI_CONNECTING;
-                    esp_wifi_connect();
-                }
-                break;
-
-            case WIFI_EVENT_STA_DISCONNECTED: {
-                wifi_event_sta_disconnected_t *disconn = (wifi_event_sta_disconnected_t *)event_data;
-                ESP_LOGW(TAG, "WiFi disconnected, reason: %d", disconn->reason);
-
-                // Log common disconnect reasons for debugging
-                switch (disconn->reason) {
-                    case WIFI_REASON_AUTH_EXPIRE:
-                    case WIFI_REASON_AUTH_FAIL:
-                    case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT:
-                    case WIFI_REASON_HANDSHAKE_TIMEOUT:
-                        ESP_LOGE(TAG, "Auth failed - check password or try WPA2 instead of WPA3");
-                        break;
-                    case WIFI_REASON_NO_AP_FOUND:
-                        ESP_LOGE(TAG, "AP not found - check SSID and ensure 2.4GHz (not 5GHz)");
-                        break;
-                    case WIFI_REASON_ASSOC_FAIL:
-                        ESP_LOGE(TAG, "Association failed - AP may be full or rejecting");
-                        break;
-                    default:
-                        ESP_LOGW(TAG, "Disconnect reason code: %d", disconn->reason);
-                        break;
-                }
-
-                s_mqtt_connected = false;
-                s_status = MQTT_CONN_WIFI_CONNECTING;
-
-                if (s_wifi_retry_count < WIFI_MAX_RETRY) {
-                    s_wifi_retry_count++;
-                    ESP_LOGI(TAG, "Retrying WiFi connection (%d/%d)...",
-                             s_wifi_retry_count, WIFI_MAX_RETRY);
-                    vTaskDelay(pdMS_TO_TICKS(1000 * s_wifi_retry_count));
-                    esp_wifi_connect();
-                } else {
-                    ESP_LOGE(TAG, "WiFi connection failed after %d retries", WIFI_MAX_RETRY);
-                    s_status = MQTT_CONN_ERROR;
-                    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-                }
-                break;
-            }
-
-            default:
-                ESP_LOGD(TAG, "WiFi event: %ld", event_id);
-                break;
-        }
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "WiFi connected, IP: " IPSTR, IP2STR(&event->ip_info.ip));
-        s_wifi_retry_count = 0;
-        s_status = MQTT_CONN_WIFI_CONNECTED;
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-}
-
-// ============================================================================
 // MQTT Event Handler
 // ============================================================================
 
@@ -370,191 +288,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 }
 
 // ============================================================================
-// WiFi Initialization
-// ============================================================================
-
-static esp_err_t wifi_init(void)
-{
-    ESP_LOGI(TAG, "Initializing WiFi...");
-
-    // Initialize NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_LOGW(TAG, "NVS partition needs to be erased");
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
-    // Create event group
-    s_wifi_event_group = xEventGroupCreate();
-    if (s_wifi_event_group == NULL) {
-        ESP_LOGE(TAG, "Failed to create WiFi event group");
-        return ESP_ERR_NO_MEM;
-    }
-
-    // Initialize TCP/IP stack
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
-
-    // Initialize WiFi with default config
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    // Store WiFi config in RAM only (avoid NVS caching issues)
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-
-    // Register event handlers
-    esp_event_handler_instance_t instance_any_id;
-    esp_event_handler_instance_t instance_got_ip;
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, &instance_any_id));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, &instance_got_ip));
-
-    // Start WiFi in STA mode first (needed for scan)
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    // Scan for APs BEFORE configuring connection (to avoid "STA is connecting" error)
-    ESP_LOGI(TAG, "Scanning for WiFi networks...");
-    wifi_scan_config_t scan_config = {
-        .ssid = NULL,
-        .bssid = NULL,
-        .channel = 0,
-        .show_hidden = true,
-        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-        .scan_time.active.min = 100,
-        .scan_time.active.max = 500,
-    };
-    esp_wifi_scan_start(&scan_config, true);  // Blocking scan
-
-    uint16_t ap_count = 0;
-    esp_wifi_scan_get_ap_num(&ap_count);
-    ESP_LOGI(TAG, "Found %d access points", ap_count);
-
-    wifi_auth_mode_t target_auth = WIFI_AUTH_WPA2_PSK;  // Default
-    int8_t target_rssi = -100;
-    uint8_t target_channel = 0;
-
-    if (ap_count > 0) {
-        wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * ap_count);
-        if (ap_list) {
-            esp_wifi_scan_get_ap_records(&ap_count, ap_list);
-            bool target_found = false;
-            for (int i = 0; i < ap_count && i < 15; i++) {
-                const char *auth_str = "UNKNOWN";
-                switch (ap_list[i].authmode) {
-                    case WIFI_AUTH_OPEN: auth_str = "OPEN"; break;
-                    case WIFI_AUTH_WEP: auth_str = "WEP"; break;
-                    case WIFI_AUTH_WPA_PSK: auth_str = "WPA"; break;
-                    case WIFI_AUTH_WPA2_PSK: auth_str = "WPA2"; break;
-                    case WIFI_AUTH_WPA_WPA2_PSK: auth_str = "WPA/WPA2"; break;
-                    case WIFI_AUTH_WPA3_PSK: auth_str = "WPA3"; break;
-                    case WIFI_AUTH_WPA2_WPA3_PSK: auth_str = "WPA2/WPA3"; break;
-                    default: break;
-                }
-                ESP_LOGI(TAG, "  [%2d] %-24s CH:%2d RSSI:%4d %s",
-                         i, ap_list[i].ssid, ap_list[i].primary,
-                         ap_list[i].rssi, auth_str);
-
-                if (strcmp((char *)ap_list[i].ssid, CONFIG_WIFI_SSID) == 0) {
-                    // Only update if this is the first match OR has better signal
-                    if (!target_found || ap_list[i].rssi > target_rssi) {
-                        target_auth = ap_list[i].authmode;
-                        target_rssi = ap_list[i].rssi;
-                        target_channel = ap_list[i].primary;
-                        ESP_LOGI(TAG, "  >>> Target '%s' BEST: CH %d, RSSI %d, %s",
-                                 CONFIG_WIFI_SSID, target_channel, target_rssi, auth_str);
-                    } else {
-                        ESP_LOGI(TAG, "  >>> Target '%s' (weaker, skipped)", CONFIG_WIFI_SSID);
-                    }
-                    target_found = true;
-                }
-            }
-            if (!target_found) {
-                ESP_LOGE(TAG, "Target AP '%s' NOT FOUND in scan!", CONFIG_WIFI_SSID);
-            }
-            free(ap_list);
-        }
-    }
-
-    // Configure WiFi
-    // DON'T lock channel - let driver pick strongest signal
-    // Use detected auth mode as threshold, fall back to WPA2
-    wifi_auth_mode_t threshold = WIFI_AUTH_WPA2_PSK;
-    if (target_auth == WIFI_AUTH_WPA_PSK || target_auth == WIFI_AUTH_WPA_WPA2_PSK) {
-        threshold = WIFI_AUTH_WPA_PSK;  // Lower threshold for WPA networks
-    }
-
-    wifi_config_t wifi_config = {
-        .sta = {
-            .threshold.authmode = threshold,
-            // Disable PMF - causes issues with some WPA2/WPA3 transition routers
-            .pmf_cfg = {
-                .capable = false,
-                .required = false,
-            },
-            // Let driver pick best AP by signal strength
-            .scan_method = WIFI_ALL_CHANNEL_SCAN,
-            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
-            .channel = 0,  // Don't lock - let driver pick
-        },
-    };
-
-    // Copy SSID and password explicitly
-    memset(wifi_config.sta.ssid, 0, sizeof(wifi_config.sta.ssid));
-    memset(wifi_config.sta.password, 0, sizeof(wifi_config.sta.password));
-    strncpy((char *)wifi_config.sta.ssid, CONFIG_WIFI_SSID, sizeof(wifi_config.sta.ssid) - 1);
-    strncpy((char *)wifi_config.sta.password, CONFIG_WIFI_PASSWORD, sizeof(wifi_config.sta.password) - 1);
-
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-
-    // Log AP auth mode for debugging
-    const char *target_auth_str = "WPA/WPA2";
-    if (target_auth == WIFI_AUTH_WPA3_PSK) target_auth_str = "WPA3";
-    else if (target_auth == WIFI_AUTH_WPA2_WPA3_PSK) target_auth_str = "WPA2/WPA3";
-    else if (target_auth == WIFI_AUTH_WPA2_PSK) target_auth_str = "WPA2";
-    else if (target_auth == WIFI_AUTH_OPEN) target_auth_str = "OPEN";
-
-    ESP_LOGI(TAG, "WiFi config: SSID='%s' best_ch=%d AP_auth=%s threshold=%s PMF=off",
-             CONFIG_WIFI_SSID, target_channel, target_auth_str,
-             threshold == WIFI_AUTH_WPA2_PSK ? "WPA2" : "WPA");
-
-    // Now that config is set, enable auto-reconnect for future disconnects
-    s_wifi_initialized = true;
-    s_status = MQTT_CONN_WIFI_CONNECTING;
-
-    // Small delay to let WiFi driver stabilize after scan
-    vTaskDelay(pdMS_TO_TICKS(100));
-
-    // Start the connection manually (event handler skipped initial connect)
-    ESP_LOGI(TAG, "Connecting to '%s'...", CONFIG_WIFI_SSID);
-    esp_wifi_connect();
-
-    // Wait for connection
-    EventBits_t bits = xEventGroupWaitBits(
-        s_wifi_event_group,
-        WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-        pdFALSE,
-        pdFALSE,
-        pdMS_TO_TICKS(30000)  // 30 second timeout
-    );
-
-    if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "WiFi connected successfully");
-        return ESP_OK;
-    } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGE(TAG, "WiFi connection failed");
-        return ESP_FAIL;
-    } else {
-        ESP_LOGE(TAG, "WiFi connection timeout");
-        return ESP_ERR_TIMEOUT;
-    }
-}
-
-// ============================================================================
 // MQTT Initialization
 // ============================================================================
 
@@ -616,15 +349,28 @@ static void mqtt_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "MQTT task started");
 
-    // Initialize WiFi
-    esp_err_t ret = wifi_init();
+    // Initialize WiFi provisioning
+    esp_err_t ret = wifi_prov_init();
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "WiFi initialization failed: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG, "WiFi provisioning init failed: %s", esp_err_to_name(ret));
         s_status = MQTT_CONN_ERROR;
         s_running = false;
         vTaskDelete(NULL);
         return;
     }
+
+    // Start WiFi provisioning (blocks until connected)
+    s_status = MQTT_CONN_WIFI_CONNECTING;
+    ret = wifi_prov_start();
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "WiFi connection failed: %s", esp_err_to_name(ret));
+        s_status = MQTT_CONN_ERROR;
+        s_running = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    s_status = MQTT_CONN_WIFI_CONNECTED;
+    ESP_LOGI(TAG, "WiFi connected, starting MQTT...");
 
     // Initialize MQTT
     ret = mqtt_init();
@@ -679,8 +425,7 @@ static void mqtt_task(void *pvParameters)
         s_mqtt_client = NULL;
     }
 
-    esp_wifi_stop();
-    esp_wifi_deinit();
+    // Note: WiFi cleanup is handled by wifi_prov module
 
     ESP_LOGI(TAG, "MQTT task stopped");
     vTaskDelete(NULL);
@@ -706,7 +451,6 @@ esp_err_t mqtt_task_start(QueueHandle_t state_queue, QueueHandle_t command_queue
     s_discovery_sent = false;
     s_states_published = 0;
     s_reconnections = 0;
-    s_wifi_retry_count = 0;
 
     s_running = true;
 
@@ -740,10 +484,7 @@ void mqtt_task_stop(void)
     // Wait for task to exit
     vTaskDelay(pdMS_TO_TICKS(2000));
 
-    if (s_wifi_event_group) {
-        vEventGroupDelete(s_wifi_event_group);
-        s_wifi_event_group = NULL;
-    }
+    // Note: WiFi event group is managed by wifi_prov module
 
     s_task_handle = NULL;
 }

@@ -1,0 +1,13 @@
+# IntelliChem2MQTT Default Configuration
+
+# Use custom partition table with larger app partition
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# Target ESP32-C3 with 4MB flash
+CONFIG_IDF_TARGET="esp32c3"
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# Enable UART driver
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y

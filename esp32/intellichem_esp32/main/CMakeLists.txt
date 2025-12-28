@@ -9,6 +9,7 @@ idf_component_register(
         "protocol/commands.c"
         "serial/rs485.c"
         "serial/serial_task.c"
+        "wifi/wifi_prov.c"
         "mqtt/mqtt_task.c"
         "mqtt/publisher.c"
         "mqtt/discovery.c"
@@ -17,5 +18,16 @@ idf_component_register(
         "protocol"
         "models"
         "serial"
+        "wifi"
         "mqtt"
+    REQUIRES
+        nvs_flash
+        esp_wifi
+        esp_event
+        esp_netif
+        wifi_provisioning
+        driver
+        mqtt
+    PRIV_REQUIRES
+        qrcode
 )
