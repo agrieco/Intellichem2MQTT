@@ -406,33 +406,11 @@ static esp_err_t wifi_init(void)
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, &instance_got_ip));
 
-    // Configure WiFi - use flexible auth to support WPA/WPA2/WPA3
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-            // Allow any auth mode (WPA, WPA2, WPA3, or open if no password)
-            .threshold.authmode = strlen(CONFIG_WIFI_PASSWORD) > 0 ? WIFI_AUTH_WPA_PSK : WIFI_AUTH_OPEN,
-            // Enable Protected Management Frames for WPA3 compatibility
-            .pmf_cfg = {
-                .capable = true,
-                .required = false,
-            },
-            // Scan all channels, not just the one from last connection
-            .scan_method = WIFI_ALL_CHANNEL_SCAN,
-            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
-        },
-    };
-
+    // Start WiFi in STA mode first (needed for scan)
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(TAG, "WiFi initialized, SSID: %s (auth: %s, PMF: capable)",
-             CONFIG_WIFI_SSID,
-             strlen(CONFIG_WIFI_PASSWORD) > 0 ? "WPA/WPA2/WPA3" : "Open");
-
-    // Scan for APs to help diagnose connection issues
+    // Scan for APs BEFORE configuring connection (to avoid "STA is connecting" error)
     ESP_LOGI(TAG, "Scanning for WiFi networks...");
     wifi_scan_config_t scan_config = {
         .ssid = NULL,
@@ -441,7 +419,7 @@ static esp_err_t wifi_init(void)
         .show_hidden = true,
         .scan_type = WIFI_SCAN_TYPE_ACTIVE,
         .scan_time.active.min = 100,
-        .scan_time.active.max = 300,
+        .scan_time.active.max = 500,
     };
     esp_wifi_scan_start(&scan_config, true);  // Blocking scan
 
@@ -449,12 +427,16 @@ static esp_err_t wifi_init(void)
     esp_wifi_scan_get_ap_num(&ap_count);
     ESP_LOGI(TAG, "Found %d access points", ap_count);
 
+    wifi_auth_mode_t target_auth = WIFI_AUTH_WPA2_PSK;  // Default
+    int8_t target_rssi = -100;
+    uint8_t target_channel = 0;
+
     if (ap_count > 0) {
         wifi_ap_record_t *ap_list = malloc(sizeof(wifi_ap_record_t) * ap_count);
         if (ap_list) {
             esp_wifi_scan_get_ap_records(&ap_count, ap_list);
             bool target_found = false;
-            for (int i = 0; i < ap_count && i < 10; i++) {
+            for (int i = 0; i < ap_count && i < 15; i++) {
                 const char *auth_str = "UNKNOWN";
                 switch (ap_list[i].authmode) {
                     case WIFI_AUTH_OPEN: auth_str = "OPEN"; break;
@@ -466,14 +448,17 @@ static esp_err_t wifi_init(void)
                     case WIFI_AUTH_WPA2_WPA3_PSK: auth_str = "WPA2/WPA3"; break;
                     default: break;
                 }
-                ESP_LOGI(TAG, "  [%d] SSID: %-20s CH: %2d RSSI: %4d AUTH: %s",
+                ESP_LOGI(TAG, "  [%2d] %-24s CH:%2d RSSI:%4d %s",
                          i, ap_list[i].ssid, ap_list[i].primary,
                          ap_list[i].rssi, auth_str);
 
                 if (strcmp((char *)ap_list[i].ssid, CONFIG_WIFI_SSID) == 0) {
                     target_found = true;
-                    ESP_LOGI(TAG, "  >>> Target AP '%s' found on channel %d, RSSI %d, auth %s",
-                             CONFIG_WIFI_SSID, ap_list[i].primary, ap_list[i].rssi, auth_str);
+                    target_auth = ap_list[i].authmode;
+                    target_rssi = ap_list[i].rssi;
+                    target_channel = ap_list[i].primary;
+                    ESP_LOGI(TAG, "  >>> Target '%s' found: CH %d, RSSI %d, %s",
+                             CONFIG_WIFI_SSID, target_channel, target_rssi, auth_str);
                 }
             }
             if (!target_found) {
@@ -483,6 +468,34 @@ static esp_err_t wifi_init(void)
         }
     }
 
+    // Configure WiFi - try to match the AP's auth mode exactly
+    // Disable PMF to avoid WPA3 transition mode issues
+    wifi_config_t wifi_config = {
+        .sta = {
+            .ssid = CONFIG_WIFI_SSID,
+            .password = CONFIG_WIFI_PASSWORD,
+            // Use detected auth mode, or WPA2 as fallback
+            .threshold.authmode = WIFI_AUTH_WPA_PSK,
+            // DISABLE PMF - this often causes issues with WPA2/WPA3 transition
+            .pmf_cfg = {
+                .capable = false,
+                .required = false,
+            },
+            .scan_method = WIFI_ALL_CHANNEL_SCAN,
+            .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
+            // Lock to detected channel if found
+            .channel = target_channel,
+        },
+    };
+
+    // Copy SSID and password (ensure proper null termination)
+    strncpy((char *)wifi_config.sta.ssid, CONFIG_WIFI_SSID, sizeof(wifi_config.sta.ssid) - 1);
+    strncpy((char *)wifi_config.sta.password, CONFIG_WIFI_PASSWORD, sizeof(wifi_config.sta.password) - 1);
+
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+
+    ESP_LOGI(TAG, "WiFi configured: SSID='%s', PMF=disabled, target_ch=%d",
+             CONFIG_WIFI_SSID, target_channel);
     ESP_LOGI(TAG, "Starting connection to '%s'...", CONFIG_WIFI_SSID);
 
     // Wait for connection
