@@ -63,6 +63,9 @@ static uint32_t s_states_published = 0;
 static uint32_t s_reconnections = 0;
 static int s_wifi_retry_count = 0;
 
+// Flag to skip auto-connect on first STA_START (allows scan first)
+static volatile bool s_wifi_initialized = false;
+
 // ============================================================================
 // Command Parsing
 // ============================================================================
@@ -212,9 +215,13 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
             case WIFI_EVENT_STA_START:
-                ESP_LOGI(TAG, "WiFi station started, connecting...");
-                s_status = MQTT_CONN_WIFI_CONNECTING;
-                esp_wifi_connect();
+                ESP_LOGI(TAG, "WiFi station started");
+                // Only auto-connect after initial setup (allows scan first)
+                if (s_wifi_initialized) {
+                    ESP_LOGI(TAG, "Reconnecting to WiFi...");
+                    s_status = MQTT_CONN_WIFI_CONNECTING;
+                    esp_wifi_connect();
+                }
                 break;
 
             case WIFI_EVENT_STA_DISCONNECTED: {
@@ -494,9 +501,23 @@ static esp_err_t wifi_init(void)
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
 
-    ESP_LOGI(TAG, "WiFi configured: SSID='%s', PMF=disabled, target_ch=%d",
-             CONFIG_WIFI_SSID, target_channel);
-    ESP_LOGI(TAG, "Starting connection to '%s'...", CONFIG_WIFI_SSID);
+    // Log AP auth mode for debugging
+    const char *target_auth_str = "WPA/WPA2";
+    if (target_auth == WIFI_AUTH_WPA3_PSK) target_auth_str = "WPA3";
+    else if (target_auth == WIFI_AUTH_WPA2_WPA3_PSK) target_auth_str = "WPA2/WPA3";
+    else if (target_auth == WIFI_AUTH_WPA2_PSK) target_auth_str = "WPA2";
+    else if (target_auth == WIFI_AUTH_OPEN) target_auth_str = "OPEN";
+
+    ESP_LOGI(TAG, "WiFi config: SSID='%s' CH=%d AP_auth=%s PMF=off",
+             CONFIG_WIFI_SSID, target_channel, target_auth_str);
+
+    // Now that config is set, enable auto-reconnect for future disconnects
+    s_wifi_initialized = true;
+    s_status = MQTT_CONN_WIFI_CONNECTING;
+
+    // Start the connection manually (event handler skipped initial connect)
+    ESP_LOGI(TAG, "Connecting to '%s'...", CONFIG_WIFI_SSID);
+    esp_wifi_connect();
 
     // Wait for connection
     EventBits_t bits = xEventGroupWaitBits(
