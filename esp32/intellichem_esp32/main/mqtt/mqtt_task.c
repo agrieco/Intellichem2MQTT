@@ -460,12 +460,17 @@ static esp_err_t wifi_init(void)
                          ap_list[i].rssi, auth_str);
 
                 if (strcmp((char *)ap_list[i].ssid, CONFIG_WIFI_SSID) == 0) {
+                    // Only update if this is the first match OR has better signal
+                    if (!target_found || ap_list[i].rssi > target_rssi) {
+                        target_auth = ap_list[i].authmode;
+                        target_rssi = ap_list[i].rssi;
+                        target_channel = ap_list[i].primary;
+                        ESP_LOGI(TAG, "  >>> Target '%s' BEST: CH %d, RSSI %d, %s",
+                                 CONFIG_WIFI_SSID, target_channel, target_rssi, auth_str);
+                    } else {
+                        ESP_LOGI(TAG, "  >>> Target '%s' (weaker, skipped)", CONFIG_WIFI_SSID);
+                    }
                     target_found = true;
-                    target_auth = ap_list[i].authmode;
-                    target_rssi = ap_list[i].rssi;
-                    target_channel = ap_list[i].primary;
-                    ESP_LOGI(TAG, "  >>> Target '%s' found: CH %d, RSSI %d, %s",
-                             CONFIG_WIFI_SSID, target_channel, target_rssi, auth_str);
                 }
             }
             if (!target_found) {
@@ -475,27 +480,32 @@ static esp_err_t wifi_init(void)
         }
     }
 
-    // Configure WiFi - try to match the AP's auth mode exactly
-    // Disable PMF to avoid WPA3 transition mode issues
+    // Configure WiFi
+    // DON'T lock channel - let driver pick strongest signal
+    // Use detected auth mode as threshold, fall back to WPA2
+    wifi_auth_mode_t threshold = WIFI_AUTH_WPA2_PSK;
+    if (target_auth == WIFI_AUTH_WPA_PSK || target_auth == WIFI_AUTH_WPA_WPA2_PSK) {
+        threshold = WIFI_AUTH_WPA_PSK;  // Lower threshold for WPA networks
+    }
+
     wifi_config_t wifi_config = {
         .sta = {
-            .ssid = CONFIG_WIFI_SSID,
-            .password = CONFIG_WIFI_PASSWORD,
-            // Use detected auth mode, or WPA2 as fallback
-            .threshold.authmode = WIFI_AUTH_WPA_PSK,
-            // DISABLE PMF - this often causes issues with WPA2/WPA3 transition
+            .threshold.authmode = threshold,
+            // Disable PMF - causes issues with some WPA2/WPA3 transition routers
             .pmf_cfg = {
                 .capable = false,
                 .required = false,
             },
+            // Let driver pick best AP by signal strength
             .scan_method = WIFI_ALL_CHANNEL_SCAN,
             .sort_method = WIFI_CONNECT_AP_BY_SIGNAL,
-            // Lock to detected channel if found
-            .channel = target_channel,
+            .channel = 0,  // Don't lock - let driver pick
         },
     };
 
-    // Copy SSID and password (ensure proper null termination)
+    // Copy SSID and password explicitly
+    memset(wifi_config.sta.ssid, 0, sizeof(wifi_config.sta.ssid));
+    memset(wifi_config.sta.password, 0, sizeof(wifi_config.sta.password));
     strncpy((char *)wifi_config.sta.ssid, CONFIG_WIFI_SSID, sizeof(wifi_config.sta.ssid) - 1);
     strncpy((char *)wifi_config.sta.password, CONFIG_WIFI_PASSWORD, sizeof(wifi_config.sta.password) - 1);
 
@@ -508,12 +518,16 @@ static esp_err_t wifi_init(void)
     else if (target_auth == WIFI_AUTH_WPA2_PSK) target_auth_str = "WPA2";
     else if (target_auth == WIFI_AUTH_OPEN) target_auth_str = "OPEN";
 
-    ESP_LOGI(TAG, "WiFi config: SSID='%s' CH=%d AP_auth=%s PMF=off",
-             CONFIG_WIFI_SSID, target_channel, target_auth_str);
+    ESP_LOGI(TAG, "WiFi config: SSID='%s' best_ch=%d AP_auth=%s threshold=%s PMF=off",
+             CONFIG_WIFI_SSID, target_channel, target_auth_str,
+             threshold == WIFI_AUTH_WPA2_PSK ? "WPA2" : "WPA");
 
     // Now that config is set, enable auto-reconnect for future disconnects
     s_wifi_initialized = true;
     s_status = MQTT_CONN_WIFI_CONNECTING;
+
+    // Small delay to let WiFi driver stabilize after scan
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     // Start the connection manually (event handler skipped initial connect)
     ESP_LOGI(TAG, "Connecting to '%s'...", CONFIG_WIFI_SSID);
