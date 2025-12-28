@@ -6,6 +6,7 @@ idf_component_register(
         "protocol/message.c"
         "protocol/buffer.c"
         "protocol/parser.c"
+        "protocol/commands.c"
         "serial/rs485.c"
         "serial/serial_task.c"
         "mqtt/mqtt_task.c"

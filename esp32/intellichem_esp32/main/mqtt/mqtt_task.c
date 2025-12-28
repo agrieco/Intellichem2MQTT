@@ -7,6 +7,7 @@
 #include "publisher.h"
 #include "discovery.h"
 #include "../serial/serial_task.h"
+#include "../protocol/commands.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -19,8 +20,17 @@
 #include "mqtt_client.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 static const char *TAG = "mqtt";
+
+// ============================================================================
+// Forward Declarations
+// ============================================================================
+
+static bool parse_mqtt_command(const char *topic, int topic_len,
+                               const char *data, int data_len,
+                               serial_command_t *cmd);
 
 // ============================================================================
 // Configuration
@@ -52,6 +62,145 @@ static volatile bool s_discovery_sent = false;
 static uint32_t s_states_published = 0;
 static uint32_t s_reconnections = 0;
 static int s_wifi_retry_count = 0;
+
+// ============================================================================
+// Command Parsing
+// ============================================================================
+
+/**
+ * @brief Parse MQTT command message into serial_command_t
+ *
+ * Topic format: <prefix>/intellichem/set/<command>
+ * Commands: ph_setpoint, orp_setpoint, ph_dosing_enabled, orp_dosing_enabled,
+ *           calcium_hardness, cyanuric_acid, alkalinity
+ *
+ * @param topic MQTT topic (not null-terminated)
+ * @param topic_len Length of topic
+ * @param data MQTT payload (not null-terminated)
+ * @param data_len Length of payload
+ * @param cmd Output command structure
+ * @return true if command parsed successfully
+ */
+static bool parse_mqtt_command(const char *topic, int topic_len,
+                               const char *data, int data_len,
+                               serial_command_t *cmd)
+{
+    if (!topic || !data || !cmd || topic_len <= 0 || data_len <= 0) {
+        ESP_LOGW(TAG, "Invalid command parameters");
+        return false;
+    }
+
+    // Null-terminate the topic for parsing
+    char topic_buf[128];
+    if (topic_len >= (int)sizeof(topic_buf)) {
+        ESP_LOGW(TAG, "Topic too long: %d", topic_len);
+        return false;
+    }
+    memcpy(topic_buf, topic, topic_len);
+    topic_buf[topic_len] = '\0';
+
+    // Null-terminate the data for parsing
+    char data_buf[32];
+    if (data_len >= (int)sizeof(data_buf)) {
+        ESP_LOGW(TAG, "Data too long: %d", data_len);
+        return false;
+    }
+    memcpy(data_buf, data, data_len);
+    data_buf[data_len] = '\0';
+
+    ESP_LOGD(TAG, "Parsing command: topic='%s' data='%s'", topic_buf, data_buf);
+
+    // Find the command name (after last '/')
+    const char *cmd_name = strrchr(topic_buf, '/');
+    if (!cmd_name) {
+        ESP_LOGW(TAG, "No command name in topic");
+        return false;
+    }
+    cmd_name++;  // Skip the '/'
+
+    ESP_LOGI(TAG, "Command: %s = %s", cmd_name, data_buf);
+
+    // Parse command type and value
+    if (strcmp(cmd_name, "ph_setpoint") == 0) {
+        cmd->type = CMD_TYPE_SET_PH_SETPOINT;
+        cmd->value.ph_setpoint = strtof(data_buf, NULL);
+        if (!command_validate_ph_setpoint(cmd->value.ph_setpoint)) {
+            ESP_LOGW(TAG, "Invalid pH setpoint: %.2f (valid: 7.0-7.6)",
+                     cmd->value.ph_setpoint);
+            return false;
+        }
+        ESP_LOGI(TAG, "Parsed pH setpoint command: %.2f", cmd->value.ph_setpoint);
+        return true;
+    }
+    else if (strcmp(cmd_name, "orp_setpoint") == 0) {
+        cmd->type = CMD_TYPE_SET_ORP_SETPOINT;
+        cmd->value.orp_setpoint = (uint16_t)atoi(data_buf);
+        if (!command_validate_orp_setpoint(cmd->value.orp_setpoint)) {
+            ESP_LOGW(TAG, "Invalid ORP setpoint: %d (valid: 400-800 mV)",
+                     cmd->value.orp_setpoint);
+            return false;
+        }
+        ESP_LOGI(TAG, "Parsed ORP setpoint command: %d mV", cmd->value.orp_setpoint);
+        return true;
+    }
+    else if (strcmp(cmd_name, "ph_dosing_enabled") == 0) {
+        cmd->type = CMD_TYPE_SET_PH_DOSING_ENABLED;
+        cmd->value.dosing_enabled = (strcasecmp(data_buf, "ON") == 0 ||
+                                     strcasecmp(data_buf, "1") == 0 ||
+                                     strcasecmp(data_buf, "true") == 0);
+        ESP_LOGI(TAG, "Parsed pH dosing command: %s",
+                 cmd->value.dosing_enabled ? "enabled" : "disabled");
+        return true;
+    }
+    else if (strcmp(cmd_name, "orp_dosing_enabled") == 0) {
+        cmd->type = CMD_TYPE_SET_ORP_DOSING_ENABLED;
+        cmd->value.dosing_enabled = (strcasecmp(data_buf, "ON") == 0 ||
+                                     strcasecmp(data_buf, "1") == 0 ||
+                                     strcasecmp(data_buf, "true") == 0);
+        ESP_LOGI(TAG, "Parsed ORP dosing command: %s",
+                 cmd->value.dosing_enabled ? "enabled" : "disabled");
+        return true;
+    }
+    else if (strcmp(cmd_name, "calcium_hardness") == 0) {
+        cmd->type = CMD_TYPE_SET_CALCIUM_HARDNESS;
+        cmd->value.calcium_hardness = (uint16_t)atoi(data_buf);
+        if (!command_validate_calcium_hardness(cmd->value.calcium_hardness)) {
+            ESP_LOGW(TAG, "Invalid calcium hardness: %d (valid: 25-800 ppm)",
+                     cmd->value.calcium_hardness);
+            return false;
+        }
+        ESP_LOGI(TAG, "Parsed calcium hardness command: %d ppm",
+                 cmd->value.calcium_hardness);
+        return true;
+    }
+    else if (strcmp(cmd_name, "cyanuric_acid") == 0) {
+        cmd->type = CMD_TYPE_SET_CYANURIC_ACID;
+        cmd->value.cyanuric_acid = (uint8_t)atoi(data_buf);
+        if (!command_validate_cyanuric_acid(cmd->value.cyanuric_acid)) {
+            ESP_LOGW(TAG, "Invalid cyanuric acid: %d (valid: 0-210 ppm)",
+                     cmd->value.cyanuric_acid);
+            return false;
+        }
+        ESP_LOGI(TAG, "Parsed cyanuric acid command: %d ppm",
+                 cmd->value.cyanuric_acid);
+        return true;
+    }
+    else if (strcmp(cmd_name, "alkalinity") == 0) {
+        cmd->type = CMD_TYPE_SET_ALKALINITY;
+        cmd->value.alkalinity = (uint16_t)atoi(data_buf);
+        if (!command_validate_alkalinity(cmd->value.alkalinity)) {
+            ESP_LOGW(TAG, "Invalid alkalinity: %d (valid: 25-800 ppm)",
+                     cmd->value.alkalinity);
+            return false;
+        }
+        ESP_LOGI(TAG, "Parsed alkalinity command: %d ppm", cmd->value.alkalinity);
+        return true;
+    }
+    else {
+        ESP_LOGW(TAG, "Unknown command: %s", cmd_name);
+        return false;
+    }
+}
 
 // ============================================================================
 // WiFi Event Handlers
@@ -158,8 +307,23 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
                      event->topic_len, event->topic);
             ESP_LOGD(TAG, "Data: %.*s", event->data_len, event->data);
 
-            // Process commands (Phase 4)
-            // TODO: Parse command topic and queue command to serial task
+            // Parse and queue command to serial task
+            if (CONFIG_CONTROL_ENABLED && s_command_queue != NULL) {
+                serial_command_t cmd;
+                memset(&cmd, 0, sizeof(cmd));
+
+                if (parse_mqtt_command(event->topic, event->topic_len,
+                                        event->data, event->data_len, &cmd)) {
+                    // Queue command to serial task
+                    if (xQueueSend(s_command_queue, &cmd, pdMS_TO_TICKS(100)) == pdTRUE) {
+                        ESP_LOGI(TAG, "Command queued to serial task (type=%d)", cmd.type);
+                    } else {
+                        ESP_LOGW(TAG, "Command queue full, dropping command");
+                    }
+                }
+            } else {
+                ESP_LOGD(TAG, "Control disabled or no command queue");
+            }
             break;
 
         case MQTT_EVENT_ERROR:

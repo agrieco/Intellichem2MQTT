@@ -9,6 +9,7 @@
 #include "../protocol/message.h"
 #include "../protocol/buffer.h"
 #include "../protocol/parser.h"
+#include "../protocol/commands.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -231,6 +232,27 @@ static void process_uart_data(void)
 }
 
 /**
+ * @brief Build and send a configuration command
+ */
+static esp_err_t send_config_command(const intellichem_settings_t *settings)
+{
+    uint8_t buf[48];
+    size_t len = command_build_config(buf, sizeof(buf),
+                                       CONFIG_INTELLICHEM_ADDRESS,
+                                       settings);
+
+    if (len == 0) {
+        ESP_LOGE(TAG, "Failed to build config command");
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Sending config command [%zu bytes]:", len);
+    command_log_settings(settings);
+
+    return send_packet(buf, len);
+}
+
+/**
  * @brief Process command from command queue
  */
 static void process_command(const serial_command_t *cmd)
@@ -239,31 +261,93 @@ static void process_command(const serial_command_t *cmd)
 
     ESP_LOGI(TAG, "Processing command type %d", cmd->type);
 
+    // Get current settings from last known state
+    intellichem_settings_t settings;
+    if (xSemaphoreTake(s_state_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        command_settings_from_state(&settings, &s_current_settings);
+        xSemaphoreGive(s_state_mutex);
+    } else {
+        // Use defaults if can't get current state
+        command_settings_init(&settings);
+        ESP_LOGW(TAG, "Using default settings (couldn't get current state)");
+    }
+
     switch (cmd->type) {
         case CMD_TYPE_REQUEST_STATUS:
             send_status_request();
             break;
 
         case CMD_TYPE_SET_PH_SETPOINT:
-            ESP_LOGI(TAG, "Set pH setpoint to %.2f", cmd->value.ph_setpoint);
-            // TODO: Build and send config command in Phase 4
+            ESP_LOGI(TAG, "Set pH setpoint: %.2f -> %.2f",
+                     settings.ph_setpoint, cmd->value.ph_setpoint);
+            if (command_validate_ph_setpoint(cmd->value.ph_setpoint)) {
+                settings.ph_setpoint = cmd->value.ph_setpoint;
+                send_config_command(&settings);
+            } else {
+                ESP_LOGE(TAG, "Invalid pH setpoint: %.2f", cmd->value.ph_setpoint);
+            }
             break;
 
         case CMD_TYPE_SET_ORP_SETPOINT:
-            ESP_LOGI(TAG, "Set ORP setpoint to %d mV", cmd->value.orp_setpoint);
-            // TODO: Build and send config command in Phase 4
+            ESP_LOGI(TAG, "Set ORP setpoint: %d -> %d mV",
+                     settings.orp_setpoint, cmd->value.orp_setpoint);
+            if (command_validate_orp_setpoint(cmd->value.orp_setpoint)) {
+                settings.orp_setpoint = cmd->value.orp_setpoint;
+                send_config_command(&settings);
+            } else {
+                ESP_LOGE(TAG, "Invalid ORP setpoint: %d", cmd->value.orp_setpoint);
+            }
             break;
 
         case CMD_TYPE_SET_PH_DOSING_ENABLED:
-            ESP_LOGI(TAG, "Set pH dosing enabled: %s",
-                     cmd->value.dosing_enabled ? "true" : "false");
-            // TODO: Build and send config command in Phase 4
+            ESP_LOGI(TAG, "Set pH dosing enabled: %s (tank_level: %d -> %d)",
+                     cmd->value.dosing_enabled ? "true" : "false",
+                     settings.ph_tank_level,
+                     cmd->value.dosing_enabled ? 7 : 0);
+            settings.ph_tank_level = cmd->value.dosing_enabled ? 7 : 0;
+            send_config_command(&settings);
             break;
 
         case CMD_TYPE_SET_ORP_DOSING_ENABLED:
-            ESP_LOGI(TAG, "Set ORP dosing enabled: %s",
-                     cmd->value.dosing_enabled ? "true" : "false");
-            // TODO: Build and send config command in Phase 4
+            ESP_LOGI(TAG, "Set ORP dosing enabled: %s (tank_level: %d -> %d)",
+                     cmd->value.dosing_enabled ? "true" : "false",
+                     settings.orp_tank_level,
+                     cmd->value.dosing_enabled ? 7 : 0);
+            settings.orp_tank_level = cmd->value.dosing_enabled ? 7 : 0;
+            send_config_command(&settings);
+            break;
+
+        case CMD_TYPE_SET_CALCIUM_HARDNESS:
+            ESP_LOGI(TAG, "Set calcium hardness: %d -> %d ppm",
+                     settings.calcium_hardness, cmd->value.calcium_hardness);
+            if (command_validate_calcium_hardness(cmd->value.calcium_hardness)) {
+                settings.calcium_hardness = cmd->value.calcium_hardness;
+                send_config_command(&settings);
+            } else {
+                ESP_LOGE(TAG, "Invalid calcium hardness: %d", cmd->value.calcium_hardness);
+            }
+            break;
+
+        case CMD_TYPE_SET_CYANURIC_ACID:
+            ESP_LOGI(TAG, "Set cyanuric acid: %d -> %d ppm",
+                     settings.cyanuric_acid, cmd->value.cyanuric_acid);
+            if (command_validate_cyanuric_acid(cmd->value.cyanuric_acid)) {
+                settings.cyanuric_acid = cmd->value.cyanuric_acid;
+                send_config_command(&settings);
+            } else {
+                ESP_LOGE(TAG, "Invalid cyanuric acid: %d", cmd->value.cyanuric_acid);
+            }
+            break;
+
+        case CMD_TYPE_SET_ALKALINITY:
+            ESP_LOGI(TAG, "Set alkalinity: %d -> %d ppm",
+                     settings.alkalinity, cmd->value.alkalinity);
+            if (command_validate_alkalinity(cmd->value.alkalinity)) {
+                settings.alkalinity = cmd->value.alkalinity;
+                send_config_command(&settings);
+            } else {
+                ESP_LOGE(TAG, "Invalid alkalinity: %d", cmd->value.alkalinity);
+            }
             break;
 
         default:
