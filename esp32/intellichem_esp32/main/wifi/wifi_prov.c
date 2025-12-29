@@ -252,7 +252,54 @@ esp_err_t wifi_prov_start(void)
     ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
 
     if (!provisioned) {
-        ESP_LOGI(TAG, "Device not provisioned - starting provisioning AP");
+        ESP_LOGI(TAG, "Device not provisioned - creating simple test AP first");
+
+        // TEST: Create a simple AP without provisioning to verify RF works
+        ESP_LOGI(TAG, "==============================================");
+        ESP_LOGI(TAG, "RF TEST: Creating INTELLICHEM_TEST AP");
+        ESP_LOGI(TAG, "==============================================");
+
+        wifi_config_t ap_config = {
+            .ap = {
+                .ssid = "INTELLICHEM_TEST",
+                .ssid_len = 16,
+                .channel = 6,
+                .password = "testpassword",
+                .max_connection = 4,
+                .authmode = WIFI_AUTH_WPA2_PSK,
+                .pmf_cfg = {
+                    .required = false,
+                },
+            },
+        };
+
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+        ESP_ERROR_CHECK(esp_wifi_start());
+
+        ESP_LOGI(TAG, "==============================================");
+        ESP_LOGI(TAG, "LOOK FOR: INTELLICHEM_TEST");
+        ESP_LOGI(TAG, "PASSWORD: testpassword");
+        ESP_LOGI(TAG, "==============================================");
+        ESP_LOGI(TAG, "Check your phone/laptop WiFi list NOW!");
+        ESP_LOGI(TAG, "Waiting 60 seconds...");
+
+        // Wait for user to check
+        for (int i = 60; i > 0; i -= 10) {
+            vTaskDelay(pdMS_TO_TICKS(10000));
+            ESP_LOGI(TAG, "%d seconds remaining to check for INTELLICHEM_TEST...", i);
+        }
+
+        ESP_LOGI(TAG, "Test complete. Continuing with provisioning...");
+        esp_wifi_stop();
+
+        // Re-initialize for provisioning
+        wifi_prov_mgr_deinit();
+        wifi_prov_mgr_config_t config = {
+            .scheme = wifi_prov_scheme_softap,
+            .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE,
+        };
+        ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
 
         // Get unique device name
         char service_name[16];
@@ -265,6 +312,10 @@ esp_err_t wifi_prov_start(void)
         // Start provisioning (no password on the SoftAP itself)
         ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(
             security, pop, service_name, NULL));
+
+        // Log the AP details for debugging
+        ESP_LOGI(TAG, "Provisioning AP started: SSID=%s (open network)", service_name);
+        ESP_LOGI(TAG, "Connect to this WiFi network, then use phone app");
 
         // Print QR code for easy setup
         print_qr_code(service_name, pop);
