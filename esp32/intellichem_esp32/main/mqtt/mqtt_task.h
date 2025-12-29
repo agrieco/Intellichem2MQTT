@@ -14,16 +14,8 @@
 #include "../models/state.h"
 
 // ============================================================================
-// Configuration (from Kconfig)
+// Configuration defaults (from Kconfig, can be overridden by web provisioning)
 // ============================================================================
-
-#ifndef CONFIG_WIFI_SSID
-#define CONFIG_WIFI_SSID "your_ssid"
-#endif
-
-#ifndef CONFIG_WIFI_PASSWORD
-#define CONFIG_WIFI_PASSWORD "your_password"
-#endif
 
 #ifndef CONFIG_MQTT_BROKER_URI
 #define CONFIG_MQTT_BROKER_URI "mqtt://192.168.1.1:1883"
@@ -124,6 +116,16 @@ bool mqtt_task_is_connected(void);
  * @param reconnections Number of reconnections
  */
 void mqtt_task_get_stats(uint32_t *states_published, bool *discovery_sent, uint32_t *reconnections);
+
+/**
+ * @brief Get the MQTT topic prefix
+ *
+ * Returns the topic prefix from web provisioning if configured,
+ * otherwise returns the Kconfig default.
+ *
+ * @return Topic prefix string (never NULL)
+ */
+const char* mqtt_task_get_topic_prefix(void);
 
 /**
  * @brief Force republish of Home Assistant discovery

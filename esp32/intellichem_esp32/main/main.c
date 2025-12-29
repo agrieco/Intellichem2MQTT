@@ -172,9 +172,7 @@ void app_main(void)
     ESP_LOGI(TAG, "  UART port: %d (TX=%d, RX=%d)",
              CONFIG_UART_PORT_NUM, CONFIG_UART_TX_PIN, CONFIG_UART_RX_PIN);
     ESP_LOGI(TAG, "  RS-485 DE pin: %d", CONFIG_RS485_DE_PIN);
-    ESP_LOGI(TAG, "  WiFi SSID: %s", CONFIG_WIFI_SSID);
-    ESP_LOGI(TAG, "  MQTT broker: %s", CONFIG_MQTT_BROKER_URI);
-    ESP_LOGI(TAG, "  MQTT topic prefix: %s", CONFIG_MQTT_TOPIC_PREFIX);
+    ESP_LOGI(TAG, "  WiFi/MQTT: Configured via web provisioning");
     ESP_LOGI(TAG, "  Control enabled: %s", CONFIG_CONTROL_ENABLED ? "yes" : "no");
     ESP_LOGI(TAG, "");
 

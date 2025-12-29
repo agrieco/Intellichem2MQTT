@@ -12,10 +12,21 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include <stdbool.h>
 
 // Event bits for WiFi connection status
 #define WIFI_PROV_CONNECTED_BIT  BIT0
 #define WIFI_PROV_FAIL_BIT       BIT1
+
+/**
+ * @brief MQTT configuration from web provisioning
+ */
+typedef struct {
+    char broker_uri[128];    // e.g., "mqtt://192.168.1.100:1883"
+    char username[64];       // MQTT username (optional)
+    char password[64];       // MQTT password (optional)
+    char topic_prefix[64];   // e.g., "intellichem2mqtt"
+} mqtt_config_t;
 
 /**
  * @brief Initialize WiFi provisioning system
@@ -70,5 +81,17 @@ bool wifi_prov_is_connected(void);
  * @return Event group handle, or NULL if not initialized
  */
 EventGroupHandle_t wifi_prov_get_event_group(void);
+
+/**
+ * @brief Get MQTT configuration from web provisioning
+ *
+ * Returns MQTT settings entered via the captive portal.
+ * If no web config exists, returns false and caller should
+ * use Kconfig defaults.
+ *
+ * @param config Output structure to fill
+ * @return true if web config exists, false to use defaults
+ */
+bool wifi_prov_get_mqtt_config(mqtt_config_t *config);
 
 #endif // WIFI_PROV_H

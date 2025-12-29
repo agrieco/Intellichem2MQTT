@@ -56,6 +56,12 @@ static volatile bool s_discovery_sent = false;
 static uint32_t s_states_published = 0;
 static uint32_t s_reconnections = 0;
 
+// Runtime MQTT config (from web provisioning or Kconfig defaults)
+static char s_broker_uri[128] = {0};
+static char s_username[64] = {0};
+static char s_password[64] = {0};
+static char s_topic_prefix[64] = {0};
+
 // ============================================================================
 // Command Parsing
 // ============================================================================
@@ -295,15 +301,33 @@ static esp_err_t mqtt_init(void)
 {
     ESP_LOGI(TAG, "Initializing MQTT client...");
 
+    // Try to get MQTT config from web provisioning
+    mqtt_config_t web_config;
+    if (wifi_prov_get_mqtt_config(&web_config)) {
+        // Use web provisioning config
+        strncpy(s_broker_uri, web_config.broker_uri, sizeof(s_broker_uri) - 1);
+        strncpy(s_username, web_config.username, sizeof(s_username) - 1);
+        strncpy(s_password, web_config.password, sizeof(s_password) - 1);
+        strncpy(s_topic_prefix, web_config.topic_prefix, sizeof(s_topic_prefix) - 1);
+        ESP_LOGI(TAG, "Using MQTT config from web provisioning");
+    } else {
+        // Fall back to Kconfig defaults
+        strncpy(s_broker_uri, CONFIG_MQTT_BROKER_URI, sizeof(s_broker_uri) - 1);
+        strncpy(s_username, CONFIG_MQTT_USERNAME, sizeof(s_username) - 1);
+        strncpy(s_password, CONFIG_MQTT_PASSWORD, sizeof(s_password) - 1);
+        strncpy(s_topic_prefix, CONFIG_MQTT_TOPIC_PREFIX, sizeof(s_topic_prefix) - 1);
+        ESP_LOGI(TAG, "Using MQTT config from Kconfig defaults");
+    }
+
     // Build LWT topic
     char lwt_topic[128];
     publisher_get_availability_topic(lwt_topic, sizeof(lwt_topic));
 
     // Configure MQTT client
     esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = CONFIG_MQTT_BROKER_URI,
-        .credentials.username = CONFIG_MQTT_USERNAME,
-        .credentials.authentication.password = CONFIG_MQTT_PASSWORD,
+        .broker.address.uri = s_broker_uri,
+        .credentials.username = s_username,
+        .credentials.authentication.password = s_password,
         .session.keepalive = CONFIG_MQTT_KEEPALIVE,
         .session.last_will = {
             .topic = lwt_topic,
@@ -337,7 +361,7 @@ static esp_err_t mqtt_init(void)
         return ret;
     }
 
-    ESP_LOGI(TAG, "MQTT client started, broker: %s", CONFIG_MQTT_BROKER_URI);
+    ESP_LOGI(TAG, "MQTT client started, broker: %s", s_broker_uri);
     return ESP_OK;
 }
 
@@ -522,6 +546,16 @@ void mqtt_task_get_stats(uint32_t *states_published, bool *discovery_sent, uint3
     if (states_published) *states_published = s_states_published;
     if (discovery_sent) *discovery_sent = s_discovery_sent;
     if (reconnections) *reconnections = s_reconnections;
+}
+
+const char* mqtt_task_get_topic_prefix(void)
+{
+    // Return the runtime topic prefix (from web config or Kconfig default)
+    // If not yet initialized, return Kconfig default
+    if (s_topic_prefix[0] == '\0') {
+        return CONFIG_MQTT_TOPIC_PREFIX;
+    }
+    return s_topic_prefix;
 }
 
 esp_err_t mqtt_task_republish_discovery(void)

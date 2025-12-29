@@ -38,17 +38,17 @@ static const char *TAG = "publisher";
 
 size_t publisher_build_topic(char *buf, size_t buf_size, const char *path)
 {
-    return snprintf(buf, buf_size, "%s/intellichem/%s", CONFIG_MQTT_TOPIC_PREFIX, path);
+    return snprintf(buf, buf_size, "%s/intellichem/%s", mqtt_task_get_topic_prefix(), path);
 }
 
 size_t publisher_build_command_topic(char *buf, size_t buf_size, const char *command)
 {
-    return snprintf(buf, buf_size, "%s/intellichem/set/%s", CONFIG_MQTT_TOPIC_PREFIX, command);
+    return snprintf(buf, buf_size, "%s/intellichem/set/%s", mqtt_task_get_topic_prefix(), command);
 }
 
 size_t publisher_get_availability_topic(char *buf, size_t buf_size)
 {
-    return snprintf(buf, buf_size, "%s/intellichem/availability", CONFIG_MQTT_TOPIC_PREFIX);
+    return snprintf(buf, buf_size, "%s/intellichem/availability", mqtt_task_get_topic_prefix());
 }
 
 // ============================================================================

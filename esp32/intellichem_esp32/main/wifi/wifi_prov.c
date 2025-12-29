@@ -40,6 +40,12 @@ static const char *TAG = "wifi_prov";
 #define NVS_KEY_SSID        "ssid"
 #define NVS_KEY_PASS        "password"
 
+#define NVS_MQTT_NAMESPACE  "mqtt_config"
+#define NVS_MQTT_BROKER     "broker_uri"
+#define NVS_MQTT_USER       "username"
+#define NVS_MQTT_PASS       "password"
+#define NVS_MQTT_PREFIX     "topic_prefix"
+
 #define DNS_PORT            53
 #define DNS_MAX_LEN         256
 
@@ -60,6 +66,10 @@ static bool s_dns_running = false;
 static char s_target_ssid[33] = {0};
 static char s_target_pass[65] = {0};
 
+// MQTT config from web form
+static mqtt_config_t s_mqtt_config = {0};
+static bool s_mqtt_config_loaded = false;
+
 // ============================================================================
 // HTML Pages
 // ============================================================================
@@ -68,31 +78,42 @@ static const char SETUP_HTML[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-"<title>IntelliChem WiFi Setup</title>"
+"<title>IntelliChem Setup</title>"
 "<style>"
 "body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;}"
 "h1{color:#333;margin-bottom:20px;}"
+"h2{color:#667eea;font-size:16px;margin:20px 0 10px 0;padding-top:15px;border-top:1px solid #eee;}"
 ".box{background:white;padding:25px;border-radius:12px;max-width:380px;margin:20px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);}"
-"input[type=text],input[type=password]{width:100%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;}"
+"input[type=text],input[type=password]{width:100%%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;}"
 "input[type=text]:focus,input[type=password]:focus{border-color:#667eea;outline:none;}"
-"input[type=submit]{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:16px;margin:8px 0;border:none;cursor:pointer;width:100%;border-radius:8px;font-size:18px;font-weight:600;transition:transform 0.1s,box-shadow 0.2s;}"
+"input[type=submit]{background:linear-gradient(135deg,#667eea 0%%,#764ba2 100%%);color:white;padding:16px;margin:8px 0;border:none;cursor:pointer;width:100%%;border-radius:8px;font-size:18px;font-weight:600;transition:transform 0.1s,box-shadow 0.2s;}"
 "input[type=submit]:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(102,126,234,0.4);}"
 "input[type=submit]:active{transform:translateY(0);}"
 "label{font-weight:600;color:#333;display:block;margin-bottom:4px;}"
+".opt{font-weight:400;color:#888;font-size:12px;}"
 ".info{color:#666;font-size:13px;margin-top:20px;padding-top:15px;border-top:1px solid #eee;}"
 ".logo{text-align:center;margin-bottom:15px;font-size:48px;}"
 "</style></head><body>"
 "<div class='box'>"
 "<div class='logo'>&#x1F3CA;</div>"
-"<h1>IntelliChem WiFi Setup</h1>"
+"<h1>IntelliChem Setup</h1>"
 "<form action='/save' method='post'>"
 "<label>WiFi Network Name:</label>"
 "<input type='text' name='ssid' maxlength='32' required placeholder='Enter your WiFi name'>"
 "<label>WiFi Password:</label>"
 "<input type='password' name='password' maxlength='64' placeholder='Enter your WiFi password'>"
-"<input type='submit' value='Connect'>"
+"<h2>MQTT Settings</h2>"
+"<label>MQTT Broker: <span class='opt'>(required)</span></label>"
+"<input type='text' name='mqtt_broker' maxlength='128' required placeholder='mqtt://192.168.1.100:1883'>"
+"<label>MQTT Username: <span class='opt'>(optional)</span></label>"
+"<input type='text' name='mqtt_user' maxlength='64' placeholder='Leave blank if no auth'>"
+"<label>MQTT Password: <span class='opt'>(optional)</span></label>"
+"<input type='password' name='mqtt_pass' maxlength='64' placeholder='Leave blank if no auth'>"
+"<label>Topic Prefix: <span class='opt'>(optional)</span></label>"
+"<input type='text' name='mqtt_prefix' maxlength='64' value='intellichem2mqtt' placeholder='intellichem2mqtt'>"
+"<input type='submit' value='Save &amp; Connect'>"
 "</form>"
-"<p class='info'>Your IntelliChem device will connect to your home WiFi and begin monitoring your pool chemistry.</p>"
+"<p class='info'>Your IntelliChem device will connect to your home WiFi and publish pool data to MQTT.</p>"
 "</div></body></html>";
 
 static const char SAVED_HTML[] =
@@ -281,12 +302,45 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// Helper to extract and decode a form field value
+static bool parse_form_field(const char *buf, const char *field, char *out, size_t out_size)
+{
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "%s=", field);
+
+    char *start = strstr(buf, pattern);
+    if (!start) {
+        out[0] = '\0';
+        return false;
+    }
+
+    start += strlen(pattern);
+    const char *end = strchr(start, '&');
+
+    // Temporarily null-terminate
+    char saved = 0;
+    if (end) {
+        saved = *end;
+        *(char*)end = '\0';
+    }
+
+    url_decode(out, start, out_size);
+
+    // Restore
+    if (end) {
+        *(char*)end = saved;
+    }
+
+    return strlen(out) > 0;
+}
+
 static esp_err_t save_post_handler(httpd_req_t *req)
 {
-    char buf[200];
+    // Larger buffer for WiFi + MQTT fields
+    char buf[512];
     int ret, remaining = req->content_len;
 
-    if (remaining > sizeof(buf) - 1) {
+    if (remaining > (int)sizeof(buf) - 1) {
         remaining = sizeof(buf) - 1;
     }
 
@@ -297,28 +351,24 @@ static esp_err_t save_post_handler(httpd_req_t *req)
     }
     buf[ret] = '\0';
 
-    ESP_LOGI(TAG, "Received form data: %s", buf);
+    ESP_LOGI(TAG, "Received form data (%d bytes)", ret);
 
-    // Parse form data: ssid=xxx&password=yyy
-    char *ssid_start = strstr(buf, "ssid=");
-    char *pass_start = strstr(buf, "password=");
+    // Parse WiFi fields
+    parse_form_field(buf, "ssid", s_target_ssid, sizeof(s_target_ssid));
+    parse_form_field(buf, "password", s_target_pass, sizeof(s_target_pass));
 
-    if (ssid_start) {
-        ssid_start += 5;
-        char *ssid_end = strchr(ssid_start, '&');
-        if (ssid_end) *ssid_end = '\0';
-        url_decode(s_target_ssid, ssid_start, sizeof(s_target_ssid));
-        if (ssid_end) *ssid_end = '&';
+    // Parse MQTT fields
+    parse_form_field(buf, "mqtt_broker", s_mqtt_config.broker_uri, sizeof(s_mqtt_config.broker_uri));
+    parse_form_field(buf, "mqtt_user", s_mqtt_config.username, sizeof(s_mqtt_config.username));
+    parse_form_field(buf, "mqtt_pass", s_mqtt_config.password, sizeof(s_mqtt_config.password));
+    parse_form_field(buf, "mqtt_prefix", s_mqtt_config.topic_prefix, sizeof(s_mqtt_config.topic_prefix));
+
+    // Set default topic prefix if not provided
+    if (strlen(s_mqtt_config.topic_prefix) == 0) {
+        strncpy(s_mqtt_config.topic_prefix, "intellichem2mqtt", sizeof(s_mqtt_config.topic_prefix) - 1);
     }
 
-    if (pass_start) {
-        pass_start += 9;
-        char *pass_end = strchr(pass_start, '&');
-        if (pass_end) *pass_end = '\0';
-        url_decode(s_target_pass, pass_start, sizeof(s_target_pass));
-    }
-
-    ESP_LOGI(TAG, "Parsed SSID: '%s'", s_target_ssid);
+    ESP_LOGI(TAG, "Parsed - SSID: '%s', MQTT: '%s'", s_target_ssid, s_mqtt_config.broker_uri);
 
     // Send response
     char response[900];
@@ -491,6 +541,79 @@ static void clear_wifi_credentials(void)
     }
 }
 
+// MQTT config NVS functions
+static esp_err_t save_mqtt_config(const mqtt_config_t *config)
+{
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_MQTT_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open MQTT NVS: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    nvs_set_str(handle, NVS_MQTT_BROKER, config->broker_uri);
+    nvs_set_str(handle, NVS_MQTT_USER, config->username);
+    nvs_set_str(handle, NVS_MQTT_PASS, config->password);
+    nvs_set_str(handle, NVS_MQTT_PREFIX, config->topic_prefix);
+
+    err = nvs_commit(handle);
+    nvs_close(handle);
+
+    ESP_LOGI(TAG, "MQTT config saved to NVS (broker: %s)", config->broker_uri);
+    return err;
+}
+
+static esp_err_t load_mqtt_config(mqtt_config_t *config)
+{
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(NVS_MQTT_NAMESPACE, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    size_t len;
+
+    len = sizeof(config->broker_uri);
+    if (nvs_get_str(handle, NVS_MQTT_BROKER, config->broker_uri, &len) != ESP_OK) {
+        config->broker_uri[0] = '\0';
+    }
+
+    len = sizeof(config->username);
+    if (nvs_get_str(handle, NVS_MQTT_USER, config->username, &len) != ESP_OK) {
+        config->username[0] = '\0';
+    }
+
+    len = sizeof(config->password);
+    if (nvs_get_str(handle, NVS_MQTT_PASS, config->password, &len) != ESP_OK) {
+        config->password[0] = '\0';
+    }
+
+    len = sizeof(config->topic_prefix);
+    if (nvs_get_str(handle, NVS_MQTT_PREFIX, config->topic_prefix, &len) != ESP_OK) {
+        config->topic_prefix[0] = '\0';
+    }
+
+    nvs_close(handle);
+
+    // Check if we have at least a broker URI
+    if (strlen(config->broker_uri) == 0) {
+        return ESP_ERR_NOT_FOUND;
+    }
+
+    return ESP_OK;
+}
+
+static void clear_mqtt_config(void)
+{
+    nvs_handle_t handle;
+    if (nvs_open(NVS_MQTT_NAMESPACE, NVS_READWRITE, &handle) == ESP_OK) {
+        nvs_erase_all(handle);
+        nvs_commit(handle);
+        nvs_close(handle);
+        ESP_LOGW(TAG, "MQTT config cleared from NVS");
+    }
+}
+
 // ============================================================================
 // Event Handler
 // ============================================================================
@@ -611,6 +734,7 @@ esp_err_t wifi_prov_start(void)
     // Check reset button
     if (check_reset_button()) {
         clear_wifi_credentials();
+        clear_mqtt_config();
     }
 
     // Try to load saved credentials
@@ -619,6 +743,12 @@ esp_err_t wifi_prov_start(void)
     bool has_credentials = (load_wifi_credentials(saved_ssid, sizeof(saved_ssid),
                                                    saved_pass, sizeof(saved_pass)) == ESP_OK)
                            && (strlen(saved_ssid) > 0);
+
+    // Try to load MQTT config from NVS
+    if (load_mqtt_config(&s_mqtt_config) == ESP_OK) {
+        s_mqtt_config_loaded = true;
+        ESP_LOGI(TAG, "Loaded MQTT config from NVS: %s", s_mqtt_config.broker_uri);
+    }
 
     if (has_credentials) {
         // Connect to saved network
@@ -684,6 +814,8 @@ esp_err_t wifi_prov_start(void)
 
         // Save credentials
         save_wifi_credentials(s_target_ssid, s_target_pass);
+        save_mqtt_config(&s_mqtt_config);
+        s_mqtt_config_loaded = true;
 
         // Give time for the response to be sent
         vTaskDelay(pdMS_TO_TICKS(2000));
@@ -724,6 +856,7 @@ esp_err_t wifi_prov_start(void)
 void wifi_prov_reset(void)
 {
     clear_wifi_credentials();
+    clear_mqtt_config();
 }
 
 bool wifi_prov_is_provisioned(void)
@@ -742,4 +875,14 @@ bool wifi_prov_is_connected(void)
 EventGroupHandle_t wifi_prov_get_event_group(void)
 {
     return s_wifi_event_group;
+}
+
+bool wifi_prov_get_mqtt_config(mqtt_config_t *config)
+{
+    if (!s_mqtt_config_loaded || !config) {
+        return false;
+    }
+
+    memcpy(config, &s_mqtt_config, sizeof(mqtt_config_t));
+    return true;
 }
