@@ -443,40 +443,21 @@ static esp_err_t save_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Handle common captive portal detection URLs
-static esp_err_t captive_handler(httpd_req_t *req)
+// 404 error handler - redirects ALL unmatched requests to captive portal
+// This is the key to making captive portal detection work on all platforms
+// Uses HTTP 303 and includes body content (iOS requires content to detect captive portal)
+static esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err)
 {
-    const char *uri = req->uri;
+    ESP_LOGI(TAG, "Redirecting %s to captive portal", req->uri);
 
-    // Android/Chrome connectivity check
-    if (strstr(uri, "generate_204") || strstr(uri, "gen_204")) {
-        // Return 302 redirect to trigger captive portal
-        httpd_resp_set_status(req, "302 Found");
-        httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
-        httpd_resp_send(req, NULL, 0);
-        return ESP_OK;
-    }
-
-    // Apple captive portal detection
-    if (strstr(uri, "hotspot-detect") || strstr(uri, "captive.apple.com")) {
-        httpd_resp_set_status(req, "302 Found");
-        httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
-        httpd_resp_send(req, NULL, 0);
-        return ESP_OK;
-    }
-
-    // Windows NCSI
-    if (strstr(uri, "ncsi.txt") || strstr(uri, "connecttest")) {
-        httpd_resp_set_status(req, "302 Found");
-        httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
-        httpd_resp_send(req, NULL, 0);
-        return ESP_OK;
-    }
-
-    // Default: redirect to setup page
-    httpd_resp_set_status(req, "302 Found");
+    // Use 303 See Other - more appropriate for captive portal redirects
+    httpd_resp_set_status(req, "303 See Other");
     httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
-    httpd_resp_send(req, NULL, 0);
+
+    // iOS requires content in the response to detect a captive portal
+    // An empty response won't trigger the captive portal popup
+    httpd_resp_send(req, "Redirecting to captive portal...", HTTPD_RESP_USE_STRLEN);
+
     return ESP_OK;
 }
 
@@ -487,8 +468,7 @@ static esp_err_t captive_handler(httpd_req_t *req)
 static httpd_handle_t start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.uri_match_fn = httpd_uri_match_wildcard;
-    config.max_uri_handlers = 8;
+    config.max_uri_handlers = 4;
 
     // Increase socket capacity for captive portal traffic
     // Mobile devices make many rapid connection attempts
@@ -502,7 +482,7 @@ static httpd_handle_t start_webserver(void)
         return NULL;
     }
 
-    // Root page (must be registered first for priority)
+    // Root page - serves the setup form
     httpd_uri_t root = {
         .uri = "/",
         .method = HTTP_GET,
@@ -510,7 +490,7 @@ static httpd_handle_t start_webserver(void)
     };
     httpd_register_uri_handler(s_httpd, &root);
 
-    // Save credentials
+    // Save credentials endpoint
     httpd_uri_t save = {
         .uri = "/save",
         .method = HTTP_POST,
@@ -518,14 +498,12 @@ static httpd_handle_t start_webserver(void)
     };
     httpd_register_uri_handler(s_httpd, &save);
 
-    // Captive portal detection (wildcard catches all other requests)
-    httpd_uri_t captive = {
-        .uri = "/*",
-        .method = HTTP_GET,
-        .handler = captive_handler,
-    };
-    httpd_register_uri_handler(s_httpd, &captive);
+    // Register 404 error handler for ALL other requests
+    // This is the captive portal magic - any URL the device tries
+    // (connectivity checks, etc.) gets redirected to our setup page
+    httpd_register_err_handler(s_httpd, HTTPD_404_NOT_FOUND, http_404_error_handler);
 
+    ESP_LOGI(TAG, "HTTP server started with captive portal redirect");
     return s_httpd;
 }
 
@@ -866,112 +844,120 @@ esp_err_t wifi_prov_start(void)
         ESP_LOGI(TAG, "Loaded MQTT config from NVS: %s", s_mqtt_config.broker_uri);
     }
 
+    // If we have saved credentials, try to connect
     if (has_credentials) {
-        // Connect to saved network
         ESP_LOGI(TAG, "Found saved credentials, connecting to '%s'...", saved_ssid);
+        strncpy(s_target_ssid, saved_ssid, sizeof(s_target_ssid) - 1);
+        strncpy(s_target_pass, saved_pass, sizeof(s_target_pass) - 1);
+    }
 
-        wifi_config_t wifi_config = {0};
-        strncpy((char *)wifi_config.sta.ssid, saved_ssid, sizeof(wifi_config.sta.ssid) - 1);
-        strncpy((char *)wifi_config.sta.password, saved_pass, sizeof(wifi_config.sta.password) - 1);
-        wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-        wifi_config.sta.pmf_cfg.capable = true;
-        wifi_config.sta.pmf_cfg.required = false;
+    // Main provisioning loop - keeps trying until we get a connection
+    while (1) {
+        // If no credentials, run captive portal
+        if (!has_credentials && !s_credentials_received) {
+            // Scan for available networks
+            scan_wifi_networks();
+            generate_setup_html();
 
-        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-        ESP_ERROR_CHECK(esp_wifi_start());
+            // Show setup instructions
+            ESP_LOGI(TAG, "");
+            ESP_LOGI(TAG, "╔══════════════════════════════════════════╗");
+            ESP_LOGI(TAG, "║     IntelliChem WiFi Setup Mode          ║");
+            ESP_LOGI(TAG, "╠══════════════════════════════════════════╣");
+            ESP_LOGI(TAG, "║  1. Connect to: %s      ║", SETUP_AP_SSID);
+            ESP_LOGI(TAG, "║     (No password required)               ║");
+            ESP_LOGI(TAG, "║                                          ║");
+            ESP_LOGI(TAG, "║  2. Setup page opens automatically       ║");
+            ESP_LOGI(TAG, "║     Or go to: http://192.168.4.1         ║");
+            ESP_LOGI(TAG, "╚══════════════════════════════════════════╝");
+            ESP_LOGI(TAG, "");
 
-    } else {
-        // Scan for available networks first
-        scan_wifi_networks();
+            // Configure open AP
+            wifi_config_t ap_config = {
+                .ap = {
+                    .ssid = SETUP_AP_SSID,
+                    .ssid_len = strlen(SETUP_AP_SSID),
+                    .channel = SETUP_AP_CHANNEL,
+                    .password = "",
+                    .max_connection = SETUP_AP_MAX_CONN,
+                    .authmode = WIFI_AUTH_OPEN,
+                },
+            };
 
-        // Generate setup page HTML with network list
-        generate_setup_html();
+            ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+            ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+            ESP_ERROR_CHECK(esp_wifi_start());
 
-        // Start captive portal setup
-        ESP_LOGI(TAG, "");
-        ESP_LOGI(TAG, "╔══════════════════════════════════════════╗");
-        ESP_LOGI(TAG, "║     IntelliChem WiFi Setup Mode          ║");
-        ESP_LOGI(TAG, "╠══════════════════════════════════════════╣");
-        ESP_LOGI(TAG, "║  1. Connect to: %s      ║", SETUP_AP_SSID);
-        ESP_LOGI(TAG, "║     (No password required)               ║");
-        ESP_LOGI(TAG, "║                                          ║");
-        ESP_LOGI(TAG, "║  2. Setup page opens automatically       ║");
-        ESP_LOGI(TAG, "║     Or go to: http://192.168.4.1         ║");
-        ESP_LOGI(TAG, "╚══════════════════════════════════════════╝");
-        ESP_LOGI(TAG, "");
+            // Start DNS and web servers
+            start_dns_server();
+            start_webserver();
 
-        // Configure open AP (no password)
-        wifi_config_t ap_config = {
-            .ap = {
-                .ssid = SETUP_AP_SSID,
-                .ssid_len = strlen(SETUP_AP_SSID),
-                .channel = SETUP_AP_CHANNEL,
-                .password = "",
-                .max_connection = SETUP_AP_MAX_CONN,
-                .authmode = WIFI_AUTH_OPEN,
-            },
-        };
+            // Wait for credentials
+            ESP_LOGI(TAG, "Waiting for WiFi configuration...");
+            while (!s_credentials_received) {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
 
-        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
-        ESP_ERROR_CHECK(esp_wifi_start());
-
-        // Start DNS server (redirects all domains to 192.168.4.1)
-        start_dns_server();
-
-        // Start web server
-        start_webserver();
-
-        // Wait for credentials to be entered
-        ESP_LOGI(TAG, "Waiting for WiFi configuration...");
-        while (!s_credentials_received) {
-            vTaskDelay(pdMS_TO_TICKS(100));
+            // Stop servers
+            stop_dns_server();
+            stop_webserver();
+            esp_wifi_stop();
+            vTaskDelay(pdMS_TO_TICKS(1500));
         }
 
-        // Stop servers
-        stop_dns_server();
-        stop_webserver();
-        esp_wifi_stop();
-
-        // Save credentials
-        save_wifi_credentials(s_target_ssid, s_target_pass);
-        save_mqtt_config(&s_mqtt_config);
-        s_mqtt_config_loaded = true;
-
-        // Give time for the response to be sent
-        vTaskDelay(pdMS_TO_TICKS(2000));
-
-        // Connect to the configured network
+        // Try to connect with current credentials
         ESP_LOGI(TAG, "Connecting to '%s'...", s_target_ssid);
 
         wifi_config_t wifi_config = {0};
         strncpy((char *)wifi_config.sta.ssid, s_target_ssid, sizeof(wifi_config.sta.ssid) - 1);
         strncpy((char *)wifi_config.sta.password, s_target_pass, sizeof(wifi_config.sta.password) - 1);
-        wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+        wifi_config.sta.threshold.authmode = strlen(s_target_pass) > 0 ? WIFI_AUTH_WPA2_PSK : WIFI_AUTH_OPEN;
         wifi_config.sta.pmf_cfg.capable = true;
         wifi_config.sta.pmf_cfg.required = false;
+
+        // Clear event bits before connecting
+        xEventGroupClearBits(s_wifi_event_group, WIFI_PROV_CONNECTED_BIT | WIFI_PROV_FAIL_BIT);
 
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
         ESP_ERROR_CHECK(esp_wifi_start());
-    }
 
-    // Wait for connection
-    ESP_LOGI(TAG, "Waiting for WiFi connection...");
-    EventBits_t bits = xEventGroupWaitBits(
-        s_wifi_event_group,
-        WIFI_PROV_CONNECTED_BIT | WIFI_PROV_FAIL_BIT,
-        pdFALSE, pdFALSE,
-        portMAX_DELAY
-    );
+        // Wait for connection with timeout
+        ESP_LOGI(TAG, "Waiting for WiFi connection (30s timeout)...");
+        EventBits_t bits = xEventGroupWaitBits(
+            s_wifi_event_group,
+            WIFI_PROV_CONNECTED_BIT | WIFI_PROV_FAIL_BIT,
+            pdFALSE, pdFALSE,
+            pdMS_TO_TICKS(30000)
+        );
 
-    if (bits & WIFI_PROV_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "WiFi connected successfully!");
-        return ESP_OK;
-    } else {
-        ESP_LOGE(TAG, "WiFi connection failed");
-        return ESP_FAIL;
+        if (bits & WIFI_PROV_CONNECTED_BIT) {
+            // Success! Save credentials if they came from captive portal
+            ESP_LOGI(TAG, "WiFi connected successfully!");
+            if (s_credentials_received) {
+                save_wifi_credentials(s_target_ssid, s_target_pass);
+                save_mqtt_config(&s_mqtt_config);
+                s_mqtt_config_loaded = true;
+                ESP_LOGI(TAG, "Credentials saved to NVS");
+            }
+            return ESP_OK;
+        }
+
+        // Connection failed
+        ESP_LOGW(TAG, "WiFi connection failed!");
+        esp_wifi_stop();
+
+        // If we had saved credentials, they're bad - clear them
+        if (has_credentials) {
+            ESP_LOGW(TAG, "Saved credentials invalid, clearing...");
+            clear_wifi_credentials();
+            has_credentials = false;
+        }
+
+        // Reset for retry
+        s_credentials_received = false;
+        vTaskDelay(pdMS_TO_TICKS(2000));
+        ESP_LOGI(TAG, "Returning to setup mode...");
     }
 }
 
