@@ -100,6 +100,7 @@ static const char SETUP_HTML_HEAD[] =
 "input[type=text],select{width:100%%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;background:white;color:#333;}"
 "input[type=text]:focus,select:focus{border-color:#667eea;outline:none;}"
 ".masked{-webkit-text-security:disc;text-security:disc;}"
+"input:-webkit-autofill,input:-webkit-autofill:focus{-webkit-text-fill-color:#333 !important;-webkit-box-shadow:0 0 0 1000px white inset !important;}"
 "input[type=submit]{background:linear-gradient(135deg,#667eea 0%%,#764ba2 100%%);color:white;padding:16px;margin:8px 0;border:none;cursor:pointer;width:100%%;border-radius:8px;font-size:18px;font-weight:600;transition:transform 0.1s,box-shadow 0.2s;}"
 "input[type=submit]:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(102,126,234,0.4);}"
 "input[type=submit]:active{transform:translateY(0);}"
@@ -118,15 +119,15 @@ static const char SETUP_HTML_HEAD[] =
 // Network options are inserted dynamically here
 
 static const char SETUP_HTML_MIDDLE[] =
-"<label>WiFi Password:</label>"
-"<input type='text' name='wifi_secret' class='masked' maxlength='64' " INPUT_ATTRS " placeholder='Enter WiFi password'>"
+"<label>WiFi Key:</label>"
+"<input type='text' name='wkey' class='masked' maxlength='64' " INPUT_ATTRS " readonly onfocus=\"this.removeAttribute('readonly')\" placeholder='Required for protected networks'>"
 "<h2>MQTT Settings</h2>"
 "<label>MQTT Broker: <span class='opt'>(required)</span></label>"
 "<input type='text' name='mqtt_broker' maxlength='128' required " INPUT_ATTRS " value='mqtt://192.168.1.100:1883'>"
 "<label>MQTT Username: <span class='opt'>(optional)</span></label>"
 "<input type='text' name='mqtt_user' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
-"<label>MQTT Password: <span class='opt'>(optional)</span></label>"
-"<input type='text' name='mqtt_secret' class='masked' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
+"<label>MQTT Key: <span class='opt'>(optional)</span></label>"
+"<input type='text' name='mkey' class='masked' maxlength='64' " INPUT_ATTRS " readonly onfocus=\"this.removeAttribute('readonly')\" placeholder='Optional'>"
 "<label>Topic Prefix: <span class='opt'>(optional)</span></label>"
 "<input type='text' name='mqtt_prefix' maxlength='64' " INPUT_ATTRS " value='intellichem2mqtt'>"
 "<input type='submit' value='Save &amp; Connect'>"
@@ -421,12 +422,12 @@ static esp_err_t save_post_handler(httpd_req_t *req)
 
     // Parse WiFi fields
     parse_form_field(buf, "ssid", s_target_ssid, sizeof(s_target_ssid));
-    parse_form_field(buf, "wifi_secret", s_target_pass, sizeof(s_target_pass));
+    parse_form_field(buf, "wkey", s_target_pass, sizeof(s_target_pass));
 
     // Parse MQTT fields
     parse_form_field(buf, "mqtt_broker", s_mqtt_config.broker_uri, sizeof(s_mqtt_config.broker_uri));
     parse_form_field(buf, "mqtt_user", s_mqtt_config.username, sizeof(s_mqtt_config.username));
-    parse_form_field(buf, "mqtt_secret", s_mqtt_config.password, sizeof(s_mqtt_config.password));
+    parse_form_field(buf, "mkey", s_mqtt_config.password, sizeof(s_mqtt_config.password));
     parse_form_field(buf, "mqtt_prefix", s_mqtt_config.topic_prefix, sizeof(s_mqtt_config.topic_prefix));
 
     // Set default topic prefix if not provided
@@ -752,6 +753,9 @@ static void scan_wifi_networks(void)
     // Start WiFi in STA mode for scanning
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
+
+    // Brief delay to allow WiFi to fully initialize
+    vTaskDelay(pdMS_TO_TICKS(100));
 
     // Configure scan - active scan for better results
     wifi_scan_config_t scan_config = {
