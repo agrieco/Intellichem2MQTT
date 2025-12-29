@@ -1,9 +1,9 @@
 /**
  * @file wifi_prov.c
- * @brief Simple web-based WiFi provisioning
+ * @brief Captive portal WiFi provisioning
  *
- * Creates an AP with a web interface for WiFi configuration.
- * Connect to INTELLICHEM_SETUP, open browser to 192.168.4.1
+ * Creates an open AP with captive portal for WiFi configuration.
+ * When you connect, your phone/computer automatically opens the setup page.
  */
 
 #include "wifi_prov.h"
@@ -23,6 +23,8 @@
 #include <nvs_flash.h>
 #include <nvs.h>
 #include <driver/gpio.h>
+#include <lwip/sockets.h>
+#include <lwip/netdb.h>
 
 static const char *TAG = "wifi_prov";
 
@@ -30,14 +32,16 @@ static const char *TAG = "wifi_prov";
 // Configuration
 // ============================================================================
 
-#define SETUP_AP_SSID       "INTELLICHEM_SETUP"
-#define SETUP_AP_PASS       "intellichem"
+#define SETUP_AP_SSID       "IntelliChem-Setup"
 #define SETUP_AP_CHANNEL    6
 #define SETUP_AP_MAX_CONN   4
 
 #define NVS_NAMESPACE       "wifi_creds"
 #define NVS_KEY_SSID        "ssid"
 #define NVS_KEY_PASS        "password"
+
+#define DNS_PORT            53
+#define DNS_MAX_LEN         256
 
 #ifndef CONFIG_PROV_RESET_GPIO
 #define CONFIG_PROV_RESET_GPIO 9
@@ -49,13 +53,15 @@ static const char *TAG = "wifi_prov";
 
 static EventGroupHandle_t s_wifi_event_group = NULL;
 static httpd_handle_t s_httpd = NULL;
+static TaskHandle_t s_dns_task = NULL;
 static bool s_wifi_connected = false;
 static bool s_credentials_received = false;
+static bool s_dns_running = false;
 static char s_target_ssid[33] = {0};
 static char s_target_pass[65] = {0};
 
 // ============================================================================
-// HTML Page
+// HTML Pages
 // ============================================================================
 
 static const char SETUP_HTML[] =
@@ -64,42 +70,175 @@ static const char SETUP_HTML[] =
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
 "<title>IntelliChem WiFi Setup</title>"
 "<style>"
-"body{font-family:Arial,sans-serif;margin:40px;background:#f0f0f0;}"
-"h1{color:#333;}"
-".box{background:white;padding:20px;border-radius:8px;max-width:400px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.1);}"
-"input[type=text],input[type=password]{width:100%;padding:12px;margin:8px 0;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;}"
-"input[type=submit]{background:#4CAF50;color:white;padding:14px 20px;margin:8px 0;border:none;cursor:pointer;width:100%;border-radius:4px;font-size:16px;}"
-"input[type=submit]:hover{background:#45a049;}"
-"label{font-weight:bold;}"
-".info{color:#666;font-size:14px;margin-top:15px;}"
+"body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;}"
+"h1{color:#333;margin-bottom:20px;}"
+".box{background:white;padding:25px;border-radius:12px;max-width:380px;margin:20px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);}"
+"input[type=text],input[type=password]{width:100%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;}"
+"input[type=text]:focus,input[type=password]:focus{border-color:#667eea;outline:none;}"
+"input[type=submit]{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:16px;margin:8px 0;border:none;cursor:pointer;width:100%;border-radius:8px;font-size:18px;font-weight:600;transition:transform 0.1s,box-shadow 0.2s;}"
+"input[type=submit]:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(102,126,234,0.4);}"
+"input[type=submit]:active{transform:translateY(0);}"
+"label{font-weight:600;color:#333;display:block;margin-bottom:4px;}"
+".info{color:#666;font-size:13px;margin-top:20px;padding-top:15px;border-top:1px solid #eee;}"
+".logo{text-align:center;margin-bottom:15px;font-size:48px;}"
 "</style></head><body>"
 "<div class='box'>"
+"<div class='logo'>&#x1F3CA;</div>"
 "<h1>IntelliChem WiFi Setup</h1>"
 "<form action='/save' method='post'>"
-"<label>WiFi Network Name (SSID):</label>"
-"<input type='text' name='ssid' maxlength='32' required>"
+"<label>WiFi Network Name:</label>"
+"<input type='text' name='ssid' maxlength='32' required placeholder='Enter your WiFi name'>"
 "<label>WiFi Password:</label>"
-"<input type='password' name='password' maxlength='64'>"
-"<input type='submit' value='Save and Connect'>"
+"<input type='password' name='password' maxlength='64' placeholder='Enter your WiFi password'>"
+"<input type='submit' value='Connect'>"
 "</form>"
-"<p class='info'>After saving, the device will restart and connect to your WiFi network.</p>"
+"<p class='info'>Your IntelliChem device will connect to your home WiFi and begin monitoring your pool chemistry.</p>"
 "</div></body></html>";
 
 static const char SAVED_HTML[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-"<title>WiFi Saved</title>"
+"<title>Connected!</title>"
 "<style>"
-"body{font-family:Arial,sans-serif;margin:40px;background:#f0f0f0;text-align:center;}"
-".box{background:white;padding:30px;border-radius:8px;max-width:400px;margin:0 auto;box-shadow:0 2px 10px rgba(0,0,0,0.1);}"
-"h1{color:#4CAF50;}"
+"body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;padding:20px;background:linear-gradient(135deg,#11998e 0%%,#38ef7d 100%%);min-height:100vh;}"
+".box{background:white;padding:30px;border-radius:12px;max-width:380px;margin:20px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);text-align:center;}"
+"h1{color:#11998e;margin-bottom:15px;}"
+".check{font-size:64px;margin-bottom:10px;color:#11998e;}"
+"p{color:#666;line-height:1.6;}"
+"strong{color:#333;}"
 "</style></head><body>"
 "<div class='box'>"
+"<div class='check'>OK</div>"
 "<h1>WiFi Saved!</h1>"
 "<p>Connecting to <strong>%s</strong>...</p>"
-"<p>This page will close. Check the serial monitor for connection status.</p>"
+"<p>You can close this page. The device will connect automatically.</p>"
 "</div></body></html>";
+
+// ============================================================================
+// DNS Server (Captive Portal)
+// ============================================================================
+
+// DNS header structure
+typedef struct __attribute__((packed)) {
+    uint16_t id;
+    uint16_t flags;
+    uint16_t qd_count;
+    uint16_t an_count;
+    uint16_t ns_count;
+    uint16_t ar_count;
+} dns_header_t;
+
+// DNS response (points to 192.168.4.1)
+static void dns_server_task(void *pvParameters)
+{
+    uint8_t rx_buffer[DNS_MAX_LEN];
+    uint8_t tx_buffer[DNS_MAX_LEN];
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock < 0) {
+        ESP_LOGE(TAG, "DNS: Failed to create socket");
+        vTaskDelete(NULL);
+        return;
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_port = htons(DNS_PORT);
+
+    if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        ESP_LOGE(TAG, "DNS: Failed to bind socket");
+        close(sock);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    ESP_LOGI(TAG, "DNS server started on port %d", DNS_PORT);
+    s_dns_running = true;
+
+    // AP IP address: 192.168.4.1
+    uint8_t ap_ip[4] = {192, 168, 4, 1};
+
+    while (s_dns_running) {
+        int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer), 0,
+                          (struct sockaddr *)&client_addr, &client_len);
+
+        if (len < (int)sizeof(dns_header_t)) {
+            continue;
+        }
+
+        // Build response
+        memcpy(tx_buffer, rx_buffer, len);
+        dns_header_t *resp_header = (dns_header_t *)tx_buffer;
+
+        // Set response flags: QR=1 (response), AA=1 (authoritative), RD=1, RA=1
+        resp_header->flags = htons(0x8580);
+        resp_header->an_count = htons(1);  // One answer
+
+        // Find end of question section
+        int offset = sizeof(dns_header_t);
+        while (offset < len && rx_buffer[offset] != 0) {
+            offset += rx_buffer[offset] + 1;
+        }
+        offset += 5;  // Skip null byte + qtype (2) + qclass (2)
+
+        // Append answer
+        int ans_offset = offset;
+
+        // Name pointer (points to name in question)
+        tx_buffer[ans_offset++] = 0xc0;
+        tx_buffer[ans_offset++] = 0x0c;
+
+        // Type A (1)
+        tx_buffer[ans_offset++] = 0x00;
+        tx_buffer[ans_offset++] = 0x01;
+
+        // Class IN (1)
+        tx_buffer[ans_offset++] = 0x00;
+        tx_buffer[ans_offset++] = 0x01;
+
+        // TTL (60 seconds)
+        tx_buffer[ans_offset++] = 0x00;
+        tx_buffer[ans_offset++] = 0x00;
+        tx_buffer[ans_offset++] = 0x00;
+        tx_buffer[ans_offset++] = 0x3c;
+
+        // Data length (4 bytes for IPv4)
+        tx_buffer[ans_offset++] = 0x00;
+        tx_buffer[ans_offset++] = 0x04;
+
+        // IP address: 192.168.4.1
+        tx_buffer[ans_offset++] = ap_ip[0];
+        tx_buffer[ans_offset++] = ap_ip[1];
+        tx_buffer[ans_offset++] = ap_ip[2];
+        tx_buffer[ans_offset++] = ap_ip[3];
+
+        sendto(sock, tx_buffer, ans_offset, 0,
+               (struct sockaddr *)&client_addr, client_len);
+    }
+
+    close(sock);
+    ESP_LOGI(TAG, "DNS server stopped");
+    vTaskDelete(NULL);
+}
+
+static void start_dns_server(void)
+{
+    if (s_dns_task == NULL) {
+        xTaskCreate(dns_server_task, "dns_server", 4096, NULL, 5, &s_dns_task);
+    }
+}
+
+static void stop_dns_server(void)
+{
+    s_dns_running = false;
+    if (s_dns_task) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        s_dns_task = NULL;
+    }
+}
 
 // ============================================================================
 // URL Decode Helper
@@ -136,6 +275,7 @@ static void url_decode(char *dst, const char *src, size_t dst_size)
 
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
+    ESP_LOGI(TAG, "Serving setup page");
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, SETUP_HTML, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
@@ -181,7 +321,7 @@ static esp_err_t save_post_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "Parsed SSID: '%s'", s_target_ssid);
 
     // Send response
-    char response[600];
+    char response[900];
     snprintf(response, sizeof(response), SAVED_HTML, s_target_ssid);
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
@@ -192,9 +332,37 @@ static esp_err_t save_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Redirect all other requests to root
-static esp_err_t redirect_handler(httpd_req_t *req)
+// Handle common captive portal detection URLs
+static esp_err_t captive_handler(httpd_req_t *req)
 {
+    const char *uri = req->uri;
+
+    // Android/Chrome connectivity check
+    if (strstr(uri, "generate_204") || strstr(uri, "gen_204")) {
+        // Return 302 redirect to trigger captive portal
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    // Apple captive portal detection
+    if (strstr(uri, "hotspot-detect") || strstr(uri, "captive.apple.com")) {
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    // Windows NCSI
+    if (strstr(uri, "ncsi.txt") || strstr(uri, "connecttest")) {
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    // Default: redirect to setup page
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
     httpd_resp_send(req, NULL, 0);
@@ -209,6 +377,7 @@ static httpd_handle_t start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.uri_match_fn = httpd_uri_match_wildcard;
+    config.max_uri_handlers = 8;
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
 
@@ -217,7 +386,7 @@ static httpd_handle_t start_webserver(void)
         return NULL;
     }
 
-    // Root page
+    // Root page (must be registered first for priority)
     httpd_uri_t root = {
         .uri = "/",
         .method = HTTP_GET,
@@ -233,13 +402,13 @@ static httpd_handle_t start_webserver(void)
     };
     httpd_register_uri_handler(s_httpd, &save);
 
-    // Redirect all other requests (captive portal behavior)
-    httpd_uri_t redirect = {
+    // Captive portal detection (wildcard catches all other requests)
+    httpd_uri_t captive = {
         .uri = "/*",
         .method = HTTP_GET,
-        .handler = redirect_handler,
+        .handler = captive_handler,
     };
-    httpd_register_uri_handler(s_httpd, &redirect);
+    httpd_register_uri_handler(s_httpd, &captive);
 
     return s_httpd;
 }
@@ -349,7 +518,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
             }
 
             case WIFI_EVENT_AP_STACONNECTED:
-                ESP_LOGI(TAG, "Device connected to setup AP");
+                ESP_LOGI(TAG, "Device connected to setup AP - captive portal should appear");
                 break;
 
             case WIFI_EVENT_AP_STADISCONNECTED:
@@ -467,25 +636,28 @@ esp_err_t wifi_prov_start(void)
         ESP_ERROR_CHECK(esp_wifi_start());
 
     } else {
-        // Start setup AP
-        ESP_LOGI(TAG, "No saved credentials - starting setup AP");
-        ESP_LOGI(TAG, "==============================================");
-        ESP_LOGI(TAG, "Connect to WiFi: %s", SETUP_AP_SSID);
-        ESP_LOGI(TAG, "Password: %s", SETUP_AP_PASS);
-        ESP_LOGI(TAG, "Then open: http://192.168.4.1");
-        ESP_LOGI(TAG, "==============================================");
+        // Start captive portal setup
+        ESP_LOGI(TAG, "");
+        ESP_LOGI(TAG, "╔══════════════════════════════════════════╗");
+        ESP_LOGI(TAG, "║     IntelliChem WiFi Setup Mode          ║");
+        ESP_LOGI(TAG, "╠══════════════════════════════════════════╣");
+        ESP_LOGI(TAG, "║  1. Connect to: %s      ║", SETUP_AP_SSID);
+        ESP_LOGI(TAG, "║     (No password required)               ║");
+        ESP_LOGI(TAG, "║                                          ║");
+        ESP_LOGI(TAG, "║  2. Setup page opens automatically       ║");
+        ESP_LOGI(TAG, "║     Or go to: http://192.168.4.1         ║");
+        ESP_LOGI(TAG, "╚══════════════════════════════════════════╝");
+        ESP_LOGI(TAG, "");
 
+        // Configure open AP (no password)
         wifi_config_t ap_config = {
             .ap = {
                 .ssid = SETUP_AP_SSID,
                 .ssid_len = strlen(SETUP_AP_SSID),
                 .channel = SETUP_AP_CHANNEL,
-                .password = SETUP_AP_PASS,
+                .password = "",
                 .max_connection = SETUP_AP_MAX_CONN,
-                .authmode = WIFI_AUTH_WPA2_PSK,
-                .pmf_cfg = {
-                    .required = false,
-                },
+                .authmode = WIFI_AUTH_OPEN,
             },
         };
 
@@ -493,16 +665,20 @@ esp_err_t wifi_prov_start(void)
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
         ESP_ERROR_CHECK(esp_wifi_start());
 
+        // Start DNS server (redirects all domains to 192.168.4.1)
+        start_dns_server();
+
         // Start web server
         start_webserver();
 
         // Wait for credentials to be entered
-        ESP_LOGI(TAG, "Waiting for WiFi credentials via web interface...");
+        ESP_LOGI(TAG, "Waiting for WiFi configuration...");
         while (!s_credentials_received) {
             vTaskDelay(pdMS_TO_TICKS(100));
         }
 
-        // Stop web server and AP
+        // Stop servers
+        stop_dns_server();
         stop_webserver();
         esp_wifi_stop();
 
