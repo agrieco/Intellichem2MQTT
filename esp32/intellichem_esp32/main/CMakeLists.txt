@@ -25,9 +25,7 @@ idf_component_register(
         esp_wifi
         esp_event
         esp_netif
-        wifi_provisioning
+        esp_http_server
         driver
         mqtt
-    PRIV_REQUIRES
-        qrcode
 )
