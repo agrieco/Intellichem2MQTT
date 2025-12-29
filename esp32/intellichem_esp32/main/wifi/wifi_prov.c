@@ -476,9 +476,9 @@ static httpd_handle_t start_webserver(void)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 4;
 
-    // Increase socket capacity for captive portal traffic
-    // Mobile devices make many rapid connection attempts
-    config.max_open_sockets = 13;
+    // Socket capacity for captive portal traffic
+    // LWIP_MAX_SOCKETS=7, httpd uses 3 internally, so max available is 4
+    config.max_open_sockets = 4;
     config.lru_purge_enable = true;  // Recycle idle sockets when limit reached
 
     ESP_LOGI(TAG, "Starting HTTP server on port %d (max_sockets=%d)", config.server_port, config.max_open_sockets);
