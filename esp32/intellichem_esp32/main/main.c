@@ -13,6 +13,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_chip_info.h"
+#include "esp_wifi.h"
 
 #include "protocol/constants.h"
 #include "protocol/message.h"
@@ -177,23 +178,36 @@ void app_main(void)
     ESP_LOGI(TAG, "");
 
     // Main loop - just keep running
+    uint32_t loop_count = 0;
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(60000));  // Wake up every minute
+        vTaskDelay(pdMS_TO_TICKS(10000));  // Wake up every 10 seconds
+        loop_count++;
 
-        // Log periodic status
-        uint32_t polls, responses, errors;
-        serial_task_get_stats(&polls, &responses, &errors);
+        // Get WiFi signal strength
+        wifi_ap_record_t ap_info;
+        if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+            ESP_LOGI(TAG, "WiFi RSSI: %d dBm (SSID: %s, Channel: %d)",
+                     ap_info.rssi, ap_info.ssid, ap_info.primary);
+        } else {
+            ESP_LOGW(TAG, "WiFi: Not connected or info unavailable");
+        }
 
-        uint32_t states_published;
-        bool discovery_sent;
-        uint32_t reconnections;
-        mqtt_task_get_stats(&states_published, &discovery_sent, &reconnections);
+        // Full heartbeat every 6 loops (60 seconds)
+        if (loop_count % 6 == 0) {
+            uint32_t polls, responses, errors;
+            serial_task_get_stats(&polls, &responses, &errors);
 
-        ESP_LOGI(TAG, "Heartbeat: serial[polls=%lu resp=%lu err=%lu] mqtt[pub=%lu disc=%s reconn=%lu status=%s]",
-                 (unsigned long)polls, (unsigned long)responses, (unsigned long)errors,
-                 (unsigned long)states_published,
-                 discovery_sent ? "yes" : "no",
-                 (unsigned long)reconnections,
-                 mqtt_task_status_str(mqtt_task_get_status()));
+            uint32_t states_published;
+            bool discovery_sent;
+            uint32_t reconnections;
+            mqtt_task_get_stats(&states_published, &discovery_sent, &reconnections);
+
+            ESP_LOGI(TAG, "Heartbeat: serial[polls=%lu resp=%lu err=%lu] mqtt[pub=%lu disc=%s reconn=%lu status=%s]",
+                     (unsigned long)polls, (unsigned long)responses, (unsigned long)errors,
+                     (unsigned long)states_published,
+                     discovery_sent ? "yes" : "no",
+                     (unsigned long)reconnections,
+                     mqtt_task_status_str(mqtt_task_get_status()));
+        }
     }
 }
