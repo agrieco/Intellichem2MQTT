@@ -1,8 +1,8 @@
 /**
  * @file wifi_prov.h
- * @brief WiFi provisioning using ESP-IDF provisioning manager
+ * @brief WiFi provisioning with captive portal
  *
- * Uses SoftAP transport for phone app-based WiFi configuration.
+ * Uses SoftAP with embedded web server for WiFi configuration.
  * Credentials are stored in NVS and survive reboots.
  */
 
@@ -31,8 +31,8 @@ esp_err_t wifi_prov_init(void);
  * @brief Start WiFi provisioning or connect to saved network
  *
  * If credentials exist in NVS, connects to saved WiFi network.
- * If not provisioned, starts SoftAP with name "PROV_XXXXXX"
- * and waits for phone app to provide credentials.
+ * If not provisioned, starts open SoftAP "IntelliChem-Setup"
+ * with captive portal web interface for credential entry.
  *
  * This function blocks until WiFi is connected or fails.
  *

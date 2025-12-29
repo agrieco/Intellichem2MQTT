@@ -64,43 +64,14 @@ menu "IntelliChem2MQTT Configuration"
     endmenu
 
     menu "WiFi Provisioning"
-        config PROV_POP
-            string "Proof of Possession"
-            default "intellichem"
-            help
-                Password required during provisioning for security.
-                This is shown in the QR code and must be entered in the app.
-
         config PROV_RESET_GPIO
-            int "Provisioning Reset GPIO"
+            int "WiFi Reset GPIO"
             default 9
             range -1 21
             help
                 Hold this button LOW during boot to reset WiFi credentials
                 and enter provisioning mode. Set to -1 to disable.
                 ESP32-C3 GPIO9 is the BOOT button on most dev boards.
-
-        config PROV_SHOW_QR
-            bool "Show QR Code in Serial Monitor"
-            default y
-            help
-                Print a QR code to the serial monitor that can be scanned
-                by the provisioning app for easy setup.
-
-        config PROV_RESET_ON_FAILURE
-            bool "Reset Provisioning on Auth Failure"
-            default y
-            help
-                After multiple failed connection attempts, reset provisioned
-                credentials and restart provisioning service.
-
-        config PROV_MAX_RETRY
-            int "Max Connection Retries"
-            default 5
-            range 1 20
-            depends on PROV_RESET_ON_FAILURE
-            help
-                Number of failed connection attempts before resetting credentials.
     endmenu
 
     menu "MQTT Settings"
