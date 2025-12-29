@@ -429,7 +429,12 @@ static httpd_handle_t start_webserver(void)
     config.uri_match_fn = httpd_uri_match_wildcard;
     config.max_uri_handlers = 8;
 
-    ESP_LOGI(TAG, "Starting HTTP server on port %d", config.server_port);
+    // Increase socket capacity for captive portal traffic
+    // Mobile devices make many rapid connection attempts
+    config.max_open_sockets = 13;
+    config.lru_purge_enable = true;  // Recycle idle sockets when limit reached
+
+    ESP_LOGI(TAG, "Starting HTTP server on port %d (max_sockets=%d)", config.server_port, config.max_open_sockets);
 
     if (httpd_start(&s_httpd, &config) != ESP_OK) {
         ESP_LOGE(TAG, "Failed to start HTTP server");
