@@ -76,15 +76,16 @@ static bool s_mqtt_config_loaded = false;
 static wifi_ap_record_t s_scan_results[MAX_SCAN_RESULTS];
 static uint16_t s_scan_count = 0;
 
+// Flag to prevent auto-connect during scanning
+static bool s_scanning = false;
+
 // ============================================================================
 // HTML Templates
 // ============================================================================
 
 // iOS/Safari-friendly input attributes to disable autocorrect/autocapitalize
+// Note: Password fields use type="text" with CSS text-security to avoid Safari's password autofill detection
 #define INPUT_ATTRS "autocomplete='off' autocorrect='off' autocapitalize='off' spellcheck='false' data-lpignore='true' data-1p-ignore"
-
-// Extra attributes for password fields - Safari ignores autocomplete='off' for passwords
-#define PASSWORD_ATTRS "autocomplete='new-password' autocorrect='off' autocapitalize='off' spellcheck='false' data-lpignore='true' data-1p-ignore"
 
 static const char SETUP_HTML_HEAD[] =
 "<!DOCTYPE html>"
@@ -96,8 +97,9 @@ static const char SETUP_HTML_HEAD[] =
 "h1{color:#333;margin-bottom:20px;}"
 "h2{color:#667eea;font-size:16px;margin:20px 0 10px 0;padding-top:15px;border-top:1px solid #eee;}"
 ".box{background:white;padding:25px;border-radius:12px;max-width:380px;margin:20px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);}"
-"input[type=text],input[type=password],select{width:100%%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;background:white;}"
-"input[type=text]:focus,input[type=password]:focus,select:focus{border-color:#667eea;outline:none;}"
+"input[type=text],select{width:100%%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;background:white;color:#333;}"
+"input[type=text]:focus,select:focus{border-color:#667eea;outline:none;}"
+".masked{-webkit-text-security:disc;text-security:disc;}"
 "input[type=submit]{background:linear-gradient(135deg,#667eea 0%%,#764ba2 100%%);color:white;padding:16px;margin:8px 0;border:none;cursor:pointer;width:100%%;border-radius:8px;font-size:18px;font-weight:600;transition:transform 0.1s,box-shadow 0.2s;}"
 "input[type=submit]:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(102,126,234,0.4);}"
 "input[type=submit]:active{transform:translateY(0);}"
@@ -117,14 +119,14 @@ static const char SETUP_HTML_HEAD[] =
 
 static const char SETUP_HTML_MIDDLE[] =
 "<label>WiFi Password:</label>"
-"<input type='password' name='password' maxlength='64' " PASSWORD_ATTRS " placeholder='Enter WiFi password'>"
+"<input type='text' name='wifi_secret' class='masked' maxlength='64' " INPUT_ATTRS " placeholder='Enter WiFi password'>"
 "<h2>MQTT Settings</h2>"
 "<label>MQTT Broker: <span class='opt'>(required)</span></label>"
 "<input type='text' name='mqtt_broker' maxlength='128' required " INPUT_ATTRS " value='mqtt://192.168.1.100:1883'>"
 "<label>MQTT Username: <span class='opt'>(optional)</span></label>"
 "<input type='text' name='mqtt_user' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
 "<label>MQTT Password: <span class='opt'>(optional)</span></label>"
-"<input type='password' name='mqtt_pass' maxlength='64' " PASSWORD_ATTRS " placeholder='Leave blank if no auth'>"
+"<input type='text' name='mqtt_secret' class='masked' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
 "<label>Topic Prefix: <span class='opt'>(optional)</span></label>"
 "<input type='text' name='mqtt_prefix' maxlength='64' " INPUT_ATTRS " value='intellichem2mqtt'>"
 "<input type='submit' value='Save &amp; Connect'>"
@@ -419,12 +421,12 @@ static esp_err_t save_post_handler(httpd_req_t *req)
 
     // Parse WiFi fields
     parse_form_field(buf, "ssid", s_target_ssid, sizeof(s_target_ssid));
-    parse_form_field(buf, "password", s_target_pass, sizeof(s_target_pass));
+    parse_form_field(buf, "wifi_secret", s_target_pass, sizeof(s_target_pass));
 
     // Parse MQTT fields
     parse_form_field(buf, "mqtt_broker", s_mqtt_config.broker_uri, sizeof(s_mqtt_config.broker_uri));
     parse_form_field(buf, "mqtt_user", s_mqtt_config.username, sizeof(s_mqtt_config.username));
-    parse_form_field(buf, "mqtt_pass", s_mqtt_config.password, sizeof(s_mqtt_config.password));
+    parse_form_field(buf, "mqtt_secret", s_mqtt_config.password, sizeof(s_mqtt_config.password));
     parse_form_field(buf, "mqtt_prefix", s_mqtt_config.topic_prefix, sizeof(s_mqtt_config.topic_prefix));
 
     // Set default topic prefix if not provided
@@ -671,8 +673,13 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT) {
         switch (event_id) {
             case WIFI_EVENT_STA_START:
-                ESP_LOGI(TAG, "WiFi STA started, connecting...");
-                esp_wifi_connect();
+                // Don't auto-connect during WiFi scanning
+                if (!s_scanning) {
+                    ESP_LOGI(TAG, "WiFi STA started, connecting...");
+                    esp_wifi_connect();
+                } else {
+                    ESP_LOGI(TAG, "WiFi STA started (scanning mode, skipping connect)");
+                }
                 break;
 
             case WIFI_EVENT_STA_DISCONNECTED: {
@@ -739,6 +746,9 @@ static void scan_wifi_networks(void)
 {
     ESP_LOGI(TAG, "Scanning for WiFi networks...");
 
+    // Set scanning flag to prevent auto-connect in event handler
+    s_scanning = true;
+
     // Start WiFi in STA mode for scanning
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -759,6 +769,7 @@ static void scan_wifi_networks(void)
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "WiFi scan failed: %s", esp_err_to_name(err));
         esp_wifi_stop();
+        s_scanning = false;
         return;
     }
 
@@ -772,6 +783,9 @@ static void scan_wifi_networks(void)
 
     // Stop WiFi (will restart in AP mode)
     esp_wifi_stop();
+
+    // Clear scanning flag
+    s_scanning = false;
 
     // Log results
     ESP_LOGI(TAG, "Found %d WiFi networks:", s_scan_count);
