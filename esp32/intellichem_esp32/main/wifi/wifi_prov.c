@@ -80,8 +80,11 @@ static uint16_t s_scan_count = 0;
 // HTML Templates
 // ============================================================================
 
-// iOS-friendly input attributes to disable autocorrect/autocapitalize/password suggestions
-#define INPUT_ATTRS "autocomplete='off' autocorrect='off' autocapitalize='off' spellcheck='false'"
+// iOS/Safari-friendly input attributes to disable autocorrect/autocapitalize
+#define INPUT_ATTRS "autocomplete='off' autocorrect='off' autocapitalize='off' spellcheck='false' data-lpignore='true' data-1p-ignore"
+
+// Extra attributes for password fields - Safari ignores autocomplete='off' for passwords
+#define PASSWORD_ATTRS "autocomplete='new-password' autocorrect='off' autocapitalize='off' spellcheck='false' data-lpignore='true' data-1p-ignore"
 
 static const char SETUP_HTML_HEAD[] =
 "<!DOCTYPE html>"
@@ -114,14 +117,14 @@ static const char SETUP_HTML_HEAD[] =
 
 static const char SETUP_HTML_MIDDLE[] =
 "<label>WiFi Password:</label>"
-"<input type='password' name='password' maxlength='64' " INPUT_ATTRS " placeholder='Enter WiFi password'>"
+"<input type='password' name='password' maxlength='64' " PASSWORD_ATTRS " placeholder='Enter WiFi password'>"
 "<h2>MQTT Settings</h2>"
 "<label>MQTT Broker: <span class='opt'>(required)</span></label>"
 "<input type='text' name='mqtt_broker' maxlength='128' required " INPUT_ATTRS " value='mqtt://192.168.1.100:1883'>"
 "<label>MQTT Username: <span class='opt'>(optional)</span></label>"
 "<input type='text' name='mqtt_user' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
 "<label>MQTT Password: <span class='opt'>(optional)</span></label>"
-"<input type='password' name='mqtt_pass' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
+"<input type='password' name='mqtt_pass' maxlength='64' " PASSWORD_ATTRS " placeholder='Leave blank if no auth'>"
 "<label>Topic Prefix: <span class='opt'>(optional)</span></label>"
 "<input type='text' name='mqtt_prefix' maxlength='64' " INPUT_ATTRS " value='intellichem2mqtt'>"
 "<input type='submit' value='Save &amp; Connect'>"
