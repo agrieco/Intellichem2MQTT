@@ -49,6 +49,8 @@ static const char *TAG = "wifi_prov";
 #define DNS_PORT            53
 #define DNS_MAX_LEN         256
 
+#define MAX_SCAN_RESULTS    20
+
 #ifndef CONFIG_PROV_RESET_GPIO
 #define CONFIG_PROV_RESET_GPIO 9
 #endif
@@ -70,11 +72,18 @@ static char s_target_pass[65] = {0};
 static mqtt_config_t s_mqtt_config = {0};
 static bool s_mqtt_config_loaded = false;
 
+// WiFi scan results
+static wifi_ap_record_t s_scan_results[MAX_SCAN_RESULTS];
+static uint16_t s_scan_count = 0;
+
 // ============================================================================
-// HTML Pages
+// HTML Templates
 // ============================================================================
 
-static const char SETUP_HTML[] =
+// iOS-friendly input attributes to disable autocorrect/autocapitalize/password suggestions
+#define INPUT_ATTRS "autocomplete='off' autocorrect='off' autocapitalize='off' spellcheck='false'"
+
+static const char SETUP_HTML_HEAD[] =
 "<!DOCTYPE html>"
 "<html><head>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -84,8 +93,8 @@ static const char SETUP_HTML[] =
 "h1{color:#333;margin-bottom:20px;}"
 "h2{color:#667eea;font-size:16px;margin:20px 0 10px 0;padding-top:15px;border-top:1px solid #eee;}"
 ".box{background:white;padding:25px;border-radius:12px;max-width:380px;margin:20px auto;box-shadow:0 10px 40px rgba(0,0,0,0.2);}"
-"input[type=text],input[type=password]{width:100%%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;}"
-"input[type=text]:focus,input[type=password]:focus{border-color:#667eea;outline:none;}"
+"input[type=text],input[type=password],select{width:100%%;padding:14px;margin:8px 0 16px 0;box-sizing:border-box;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;transition:border-color 0.2s;background:white;}"
+"input[type=text]:focus,input[type=password]:focus,select:focus{border-color:#667eea;outline:none;}"
 "input[type=submit]{background:linear-gradient(135deg,#667eea 0%%,#764ba2 100%%);color:white;padding:16px;margin:8px 0;border:none;cursor:pointer;width:100%%;border-radius:8px;font-size:18px;font-weight:600;transition:transform 0.1s,box-shadow 0.2s;}"
 "input[type=submit]:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(102,126,234,0.4);}"
 "input[type=submit]:active{transform:translateY(0);}"
@@ -93,28 +102,80 @@ static const char SETUP_HTML[] =
 ".opt{font-weight:400;color:#888;font-size:12px;}"
 ".info{color:#666;font-size:13px;margin-top:20px;padding-top:15px;border-top:1px solid #eee;}"
 ".logo{text-align:center;margin-bottom:15px;font-size:48px;}"
+".signal{color:#888;font-size:12px;}"
 "</style></head><body>"
 "<div class='box'>"
 "<div class='logo'>&#x1F3CA;</div>"
 "<h1>IntelliChem Setup</h1>"
 "<form action='/save' method='post'>"
-"<label>WiFi Network Name:</label>"
-"<input type='text' name='ssid' maxlength='32' required placeholder='Enter your WiFi name'>"
+"<label>WiFi Network:</label>";
+
+// Network options are inserted dynamically here
+
+static const char SETUP_HTML_MIDDLE[] =
 "<label>WiFi Password:</label>"
-"<input type='password' name='password' maxlength='64' placeholder='Enter your WiFi password'>"
+"<input type='password' name='password' maxlength='64' " INPUT_ATTRS " placeholder='Enter WiFi password'>"
 "<h2>MQTT Settings</h2>"
 "<label>MQTT Broker: <span class='opt'>(required)</span></label>"
-"<input type='text' name='mqtt_broker' maxlength='128' required placeholder='mqtt://192.168.1.100:1883'>"
+"<input type='text' name='mqtt_broker' maxlength='128' required " INPUT_ATTRS " value='mqtt://192.168.1.100:1883'>"
 "<label>MQTT Username: <span class='opt'>(optional)</span></label>"
-"<input type='text' name='mqtt_user' maxlength='64' placeholder='Leave blank if no auth'>"
+"<input type='text' name='mqtt_user' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
 "<label>MQTT Password: <span class='opt'>(optional)</span></label>"
-"<input type='password' name='mqtt_pass' maxlength='64' placeholder='Leave blank if no auth'>"
+"<input type='password' name='mqtt_pass' maxlength='64' " INPUT_ATTRS " placeholder='Leave blank if no auth'>"
 "<label>Topic Prefix: <span class='opt'>(optional)</span></label>"
-"<input type='text' name='mqtt_prefix' maxlength='64' value='intellichem2mqtt' placeholder='intellichem2mqtt'>"
+"<input type='text' name='mqtt_prefix' maxlength='64' " INPUT_ATTRS " value='intellichem2mqtt'>"
 "<input type='submit' value='Save &amp; Connect'>"
 "</form>"
 "<p class='info'>Your IntelliChem device will connect to your home WiFi and publish pool data to MQTT.</p>"
 "</div></body></html>";
+
+// Buffer for dynamically generated HTML
+static char s_html_buffer[4096];
+
+// Signal strength to bars
+static const char* rssi_to_signal(int8_t rssi)
+{
+    if (rssi >= -50) return "&#9679;&#9679;&#9679;&#9679;";  // Excellent
+    if (rssi >= -60) return "&#9679;&#9679;&#9679;&#9675;";  // Good
+    if (rssi >= -70) return "&#9679;&#9679;&#9675;&#9675;";  // Fair
+    return "&#9679;&#9675;&#9675;&#9675;";                    // Weak
+}
+
+// Generate HTML with WiFi network dropdown
+static void generate_setup_html(void)
+{
+    int offset = 0;
+
+    // Copy header
+    offset += snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset, "%s", SETUP_HTML_HEAD);
+
+    // Generate network dropdown
+    if (s_scan_count > 0) {
+        offset += snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset,
+            "<select name='ssid' required>");
+        offset += snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset,
+            "<option value=''>-- Select Network --</option>");
+
+        for (int i = 0; i < s_scan_count && offset < (int)sizeof(s_html_buffer) - 200; i++) {
+            const char *ssid = (const char *)s_scan_results[i].ssid;
+            if (strlen(ssid) == 0) continue;  // Skip hidden networks
+
+            offset += snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset,
+                "<option value='%s'>%s <span class='signal'>%s</span></option>",
+                ssid, ssid, rssi_to_signal(s_scan_results[i].rssi));
+        }
+
+        offset += snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset,
+            "</select>");
+    } else {
+        // Fallback to text input if no networks found
+        offset += snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset,
+            "<input type='text' name='ssid' maxlength='32' required " INPUT_ATTRS " placeholder='Enter WiFi network name'>");
+    }
+
+    // Copy rest of form
+    snprintf(s_html_buffer + offset, sizeof(s_html_buffer) - offset, "%s", SETUP_HTML_MIDDLE);
+}
 
 static const char SAVED_HTML[] =
 "<!DOCTYPE html>"
@@ -296,9 +357,9 @@ static void url_decode(char *dst, const char *src, size_t dst_size)
 
 static esp_err_t root_get_handler(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "Serving setup page");
+    ESP_LOGI(TAG, "Serving setup page (%d networks available)", s_scan_count);
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, SETUP_HTML, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, s_html_buffer, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -690,6 +751,56 @@ static bool check_reset_button(void)
 }
 
 // ============================================================================
+// WiFi Scanning
+// ============================================================================
+
+static void scan_wifi_networks(void)
+{
+    ESP_LOGI(TAG, "Scanning for WiFi networks...");
+
+    // Start WiFi in STA mode for scanning
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+
+    // Configure scan - active scan for better results
+    wifi_scan_config_t scan_config = {
+        .ssid = NULL,
+        .bssid = NULL,
+        .channel = 0,
+        .show_hidden = false,
+        .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+        .scan_time.active.min = 100,
+        .scan_time.active.max = 300,
+    };
+
+    // Perform blocking scan
+    esp_err_t err = esp_wifi_scan_start(&scan_config, true);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "WiFi scan failed: %s", esp_err_to_name(err));
+        esp_wifi_stop();
+        return;
+    }
+
+    // Get scan results
+    s_scan_count = MAX_SCAN_RESULTS;
+    err = esp_wifi_scan_get_ap_records(&s_scan_count, s_scan_results);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to get scan results: %s", esp_err_to_name(err));
+        s_scan_count = 0;
+    }
+
+    // Stop WiFi (will restart in AP mode)
+    esp_wifi_stop();
+
+    // Log results
+    ESP_LOGI(TAG, "Found %d WiFi networks:", s_scan_count);
+    for (int i = 0; i < s_scan_count && i < 10; i++) {
+        ESP_LOGI(TAG, "  %d. %s (RSSI: %d)", i + 1,
+                 s_scan_results[i].ssid, s_scan_results[i].rssi);
+    }
+}
+
+// ============================================================================
 // Public API
 // ============================================================================
 
@@ -771,6 +882,12 @@ esp_err_t wifi_prov_start(void)
         ESP_ERROR_CHECK(esp_wifi_start());
 
     } else {
+        // Scan for available networks first
+        scan_wifi_networks();
+
+        // Generate setup page HTML with network list
+        generate_setup_html();
+
         // Start captive portal setup
         ESP_LOGI(TAG, "");
         ESP_LOGI(TAG, "╔══════════════════════════════════════════╗");
