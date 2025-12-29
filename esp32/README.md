@@ -182,17 +182,18 @@ idf.py flash monitor
 
 ## WiFi Setup
 
-WiFi credentials are configured via a simple web interface, not compiled into the firmware. This allows easy network changes without reflashing.
+WiFi credentials are configured via a captive portal, not compiled into the firmware. This allows easy network changes without reflashing.
 
 ### First-Time Setup
 
 1. **Flash firmware** and power on the ESP32
 2. **Connect to the setup network** on your phone/computer:
-   - **Network Name:** `INTELLICHEM_SETUP`
-   - **Password:** `intellichem`
-3. **Open a web browser** and go to: `http://192.168.4.1`
+   - **Network Name:** `IntelliChem-Setup`
+   - **No password required** (open network)
+3. **Setup page opens automatically** (captive portal)
+   - If it doesn't, go to: `http://192.168.4.1`
 4. **Enter your WiFi credentials** in the form
-5. Click **Save and Connect**
+5. Click **Connect**
 6. Device saves credentials and connects to your network
 
 The serial monitor shows connection progress and IP address when connected.
@@ -203,7 +204,7 @@ To clear saved WiFi and re-enter setup mode:
 
 1. **Hold GPIO9** (BOOT button on most dev boards) during power-on
 2. Release after "Reset button held - clearing WiFi credentials" appears
-3. Device restarts in setup mode with `INTELLICHEM_SETUP` network
+3. Device restarts in setup mode with `IntelliChem-Setup` network (open, no password)
 
 ### Settings (menuconfig)
 
