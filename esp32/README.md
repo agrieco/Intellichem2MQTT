@@ -139,7 +139,7 @@ Navigate to **IntelliChem2MQTT Configuration** and set:
 
 Press `S` to save, `Q` to quit.
 
-**Note:** WiFi credentials are configured via phone app provisioning, not menuconfig. See [WiFi Setup](#wifi-setup-provisioning) below.
+**Note:** WiFi credentials are configured via web interface, not menuconfig. See [WiFi Setup](#wifi-setup) below.
 
 ### 4. Build Firmware
 
@@ -180,47 +180,38 @@ idf.py flash monitor
 
 ---
 
-## WiFi Setup (Provisioning)
+## WiFi Setup
 
-WiFi credentials are configured via a phone app, not compiled into the firmware. This allows easy network changes without reflashing.
+WiFi credentials are configured via a simple web interface, not compiled into the firmware. This allows easy network changes without reflashing.
 
 ### First-Time Setup
 
 1. **Flash firmware** and power on the ESP32
-2. **Look for QR code** in serial monitor output
-3. **Download app** on your phone:
-   - **Android**: [ESP SoftAP Provisioning](https://play.google.com/store/apps/details?id=com.espressif.provsoftap)
-   - **iOS**: [ESP SoftAP Provisioning](https://apps.apple.com/app/esp-softap-provisioning/id1474040630)
-4. **Scan the QR code** with the app
-5. **Enter your WiFi credentials** in the app
-6. Device connects and saves credentials to flash
+2. **Connect to the setup network** on your phone/computer:
+   - **Network Name:** `INTELLICHEM_SETUP`
+   - **Password:** `intellichem`
+3. **Open a web browser** and go to: `http://192.168.4.1`
+4. **Enter your WiFi credentials** in the form
+5. Click **Save and Connect**
+6. Device saves credentials and connects to your network
 
-### Manual Setup (Without App)
-
-If you can't use the app:
-
-1. Connect to WiFi network: `PROV_XXXXXX` (shown in serial output)
-2. Password is the "Proof of Possession" (default: `intellichem`)
-3. Use a provisioning tool or HTTP API to send credentials
+The serial monitor shows connection progress and IP address when connected.
 
 ### Resetting WiFi Credentials
 
-To clear saved WiFi and re-enter provisioning mode:
+To clear saved WiFi and re-enter setup mode:
 
 1. **Hold GPIO9** (BOOT button on most dev boards) during power-on
-2. Release after "Resetting WiFi credentials" appears in serial monitor
-3. Device restarts in provisioning mode
+2. Release after "Reset button held - clearing WiFi credentials" appears
+3. Device restarts in setup mode with `INTELLICHEM_SETUP` network
 
-### Provisioning Settings (menuconfig)
+### Settings (menuconfig)
 
 Navigate to: **IntelliChem2MQTT Configuration → WiFi Provisioning**
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Proof of Possession | `intellichem` | Password for provisioning security |
 | Reset GPIO | 9 | GPIO to hold for credential reset |
-| Show QR Code | Yes | Print QR code to serial monitor |
-| Max Retries | 5 | Retry count before resetting credentials |
 
 ---
 
@@ -235,8 +226,8 @@ idf.py flash
 
 ### WiFi Settings
 
-WiFi credentials are configured via phone app provisioning, not menuconfig.
-See [WiFi Setup (Provisioning)](#wifi-setup-provisioning) for details.
+WiFi credentials are configured via web interface, not menuconfig.
+See [WiFi Setup](#wifi-setup) for details.
 
 ### MQTT Settings
 
@@ -367,11 +358,12 @@ intellichem2mqtt/intellichem/set/alkalinity
 
 ### WiFi Won't Connect
 
-1. Re-provision WiFi via phone app (hold GPIO9 to reset)
+1. Reset credentials (hold GPIO9 at boot) and reconfigure via web interface
 2. Ensure 2.4GHz network (ESP32 doesn't support 5GHz)
 3. Check router for MAC filtering
-4. Try moving closer to router during provisioning
+4. Try moving closer to router during setup
 5. Check serial monitor for detailed error messages
+6. Verify SSID and password are correct (case-sensitive)
 
 ### No IntelliChem Data
 
