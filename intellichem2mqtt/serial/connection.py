@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Optional, Callable, Awaitable
 
 import serial_asyncio
@@ -10,6 +11,9 @@ from ..config import SerialConfig
 from .buffer import PacketBuffer
 
 logger = logging.getLogger(__name__)
+
+# Enable VERY verbose debugging
+DEBUG_COMMS = True
 
 
 class RS485Connection:
@@ -96,9 +100,38 @@ class RS485Connection:
         if not self._writer or not self._connected:
             raise ConnectionError("Not connected to serial port")
 
-        logger.debug(f"Sending: {data.hex()}")
+        if DEBUG_COMMS:
+            logger.info("=" * 70)
+            logger.info(">>> SENDING DATA <<<")
+            logger.info(f"  Raw hex:    {data.hex()}")
+            logger.info(f"  Length:     {len(data)} bytes")
+            logger.info(f"  Raw bytes:  {list(data)}")
+            # Parse the packet structure
+            if len(data) >= 9:
+                logger.info(f"  Preamble:   {list(data[0:3])}")
+                logger.info(f"  Header:     {list(data[3:9])}")
+                logger.info(f"    Start:    {data[3]} (expect 165)")
+                logger.info(f"    Sub:      {data[4]} (expect 0)")
+                logger.info(f"    Dest:     {data[5]}")
+                logger.info(f"    Source:   {data[6]}")
+                logger.info(f"    Action:   {data[7]}")
+                logger.info(f"    PayLen:   {data[8]}")
+                if len(data) > 9:
+                    payload_len = data[8]
+                    payload = data[9:9+payload_len]
+                    checksum = data[9+payload_len:] if len(data) > 9+payload_len else b''
+                    logger.info(f"  Payload:    {list(payload)}")
+                    logger.info(f"  Checksum:   {list(checksum)}")
+            logger.info(f"  Timestamp:  {time.time():.3f}")
+            logger.info("=" * 70)
+        else:
+            logger.debug(f"Sending: {data.hex()}")
+
         self._writer.write(data)
         await self._writer.drain()
+
+        if DEBUG_COMMS:
+            logger.info(">>> DATA SENT SUCCESSFULLY <<<")
 
     async def receive_packet(self, timeout: float = 5.0) -> Optional[bytes]:
         """Wait for and receive a complete packet.
@@ -116,11 +149,49 @@ class RS485Connection:
             raise ConnectionError("Not connected to serial port")
 
         deadline = asyncio.get_event_loop().time() + timeout
+        start_time = time.time()
+        read_count = 0
+        total_bytes_read = 0
+
+        if DEBUG_COMMS:
+            logger.info("")
+            logger.info("<<< WAITING FOR RESPONSE >>>")
+            logger.info(f"  Timeout:    {timeout}s")
+            logger.info(f"  Start:      {start_time:.3f}")
+            logger.info(f"  Buffer:     {self._buffer.pending_bytes} bytes pending")
 
         while asyncio.get_event_loop().time() < deadline:
             # Check if we already have a complete packet in buffer
             packet = self._buffer.get_packet()
             if packet:
+                if DEBUG_COMMS:
+                    elapsed = time.time() - start_time
+                    logger.info("")
+                    logger.info("=" * 70)
+                    logger.info("<<< PACKET RECEIVED <<<")
+                    logger.info(f"  Raw hex:    {packet.hex()}")
+                    logger.info(f"  Length:     {len(packet)} bytes")
+                    logger.info(f"  Raw bytes:  {list(packet)}")
+                    logger.info(f"  Elapsed:    {elapsed:.3f}s")
+                    logger.info(f"  Read ops:   {read_count}")
+                    logger.info(f"  Total read: {total_bytes_read} bytes")
+                    # Parse the packet structure
+                    if len(packet) >= 9:
+                        logger.info(f"  Preamble:   {list(packet[0:3])}")
+                        logger.info(f"  Header:     {list(packet[3:9])}")
+                        logger.info(f"    Start:    {packet[3]} (expect 165)")
+                        logger.info(f"    Sub:      {packet[4]} (expect 0)")
+                        logger.info(f"    Dest:     {packet[5]}")
+                        logger.info(f"    Source:   {packet[6]}")
+                        logger.info(f"    Action:   {packet[7]}")
+                        logger.info(f"    PayLen:   {packet[8]}")
+                        if len(packet) > 9:
+                            payload_len = packet[8]
+                            payload = packet[9:9+payload_len]
+                            checksum = packet[9+payload_len:] if len(packet) > 9+payload_len else b''
+                            logger.info(f"  Payload:    {list(payload[:20])}{'...' if len(payload) > 20 else ''}")
+                            logger.info(f"  Checksum:   {list(checksum)}")
+                    logger.info("=" * 70)
                 return packet
 
             # Calculate remaining timeout
@@ -130,16 +201,48 @@ class RS485Connection:
 
             # Read more bytes with timeout
             try:
+                read_timeout = min(remaining, 1.0)
                 data = await asyncio.wait_for(
                     self._reader.read(256),
-                    timeout=min(remaining, 1.0),
+                    timeout=read_timeout,
                 )
+                read_count += 1
                 if data:
+                    total_bytes_read += len(data)
+                    if DEBUG_COMMS:
+                        elapsed = time.time() - start_time
+                        logger.info(f"  [RX @ {elapsed:.3f}s] {len(data)} bytes: {data.hex()}")
+                        logger.info(f"                Raw: {list(data)}")
                     self._buffer.add_bytes(data)
+                    if DEBUG_COMMS:
+                        logger.info(f"                Buffer now: {self._buffer.pending_bytes} bytes")
+                else:
+                    if DEBUG_COMMS:
+                        elapsed = time.time() - start_time
+                        logger.info(f"  [RX @ {elapsed:.3f}s] Empty read (0 bytes)")
             except asyncio.TimeoutError:
+                if DEBUG_COMMS:
+                    elapsed = time.time() - start_time
+                    logger.info(f"  [RX @ {elapsed:.3f}s] Read timeout ({read_timeout:.1f}s), buffer: {self._buffer.pending_bytes} bytes")
                 continue
 
-        logger.debug("Receive timeout - no complete packet")
+        # Timeout with no complete packet
+        elapsed = time.time() - start_time
+        if DEBUG_COMMS:
+            logger.info("")
+            logger.info("!" * 70)
+            logger.info("!!! RECEIVE TIMEOUT - NO COMPLETE PACKET !!!")
+            logger.info(f"  Elapsed:    {elapsed:.3f}s")
+            logger.info(f"  Read ops:   {read_count}")
+            logger.info(f"  Total read: {total_bytes_read} bytes")
+            logger.info(f"  Buffer:     {self._buffer.pending_bytes} bytes remaining")
+            if self._buffer.pending_bytes > 0:
+                buffer_contents = bytes(self._buffer._buffer)
+                logger.info(f"  Buffer hex: {buffer_contents.hex()}")
+                logger.info(f"  Buffer raw: {list(buffer_contents)}")
+            logger.info("!" * 70)
+        else:
+            logger.debug("Receive timeout - no complete packet")
         return None
 
     async def start_reading(

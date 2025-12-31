@@ -31,6 +31,9 @@ from ..models.intellichem import (
 
 logger = logging.getLogger(__name__)
 
+# Enable VERY verbose debugging
+DEBUG_PARSER = True
+
 
 class StatusResponseParser:
     """Parser for IntelliChem Action 18 status response messages.
@@ -72,32 +75,94 @@ class StatusResponseParser:
         Returns:
             IntelliChemState if valid, None if invalid or not a status response
         """
+        if DEBUG_PARSER:
+            logger.info("")
+            logger.info("[PARSER] ========== PARSING PACKET ==========")
+            logger.info(f"[PARSER] Packet length: {len(packet)} bytes")
+            logger.info(f"[PARSER] Packet hex: {packet.hex()}")
+            logger.info(f"[PARSER] Packet raw: {list(packet)}")
+
         # Validate checksum
         if not Message.validate_checksum(packet):
-            logger.warning("Invalid checksum in status response")
+            if DEBUG_PARSER:
+                data = packet[3:-2] if len(packet) >= 11 else b''
+                calculated = sum(data) if data else 0
+                received = (packet[-2] << 8) | packet[-1] if len(packet) >= 2 else 0
+                logger.warning(f"[PARSER] !!! CHECKSUM VALIDATION FAILED !!!")
+                logger.warning(f"[PARSER]   Calculated: {calculated} (0x{calculated:04x})")
+                logger.warning(f"[PARSER]   Received:   {received} (0x{received:04x})")
+            else:
+                logger.warning("Invalid checksum in status response")
             return None
+
+        if DEBUG_PARSER:
+            logger.info("[PARSER] Checksum valid ✓")
 
         # Check action code
         action = Message.get_action(packet)
+        if DEBUG_PARSER:
+            logger.info(f"[PARSER] Action code: {action} (expected {ACTION_STATUS_RESPONSE} for status response)")
+
         if action != ACTION_STATUS_RESPONSE:
-            logger.debug(f"Not a status response (action={action})")
+            if DEBUG_PARSER:
+                logger.info(f"[PARSER] Not a status response, action={action}")
+                logger.info(f"[PARSER]   Known actions: 18=status_response, 210=status_request, 146=config, 147=ocp_broadcast")
+            else:
+                logger.debug(f"Not a status response (action={action})")
             return None
+
+        if DEBUG_PARSER:
+            logger.info("[PARSER] Action code valid ✓")
 
         # Validate source is IntelliChem
         source = Message.get_source(packet)
+        dest = Message.get_dest(packet)
+        if DEBUG_PARSER:
+            logger.info(f"[PARSER] Source: {source} (expected {INTELLICHEM_ADDRESS_MIN}-{INTELLICHEM_ADDRESS_MAX})")
+            logger.info(f"[PARSER] Dest:   {dest}")
+
         if not (INTELLICHEM_ADDRESS_MIN <= source <= INTELLICHEM_ADDRESS_MAX):
-            logger.warning(f"Invalid source address: {source}")
+            if DEBUG_PARSER:
+                logger.warning(f"[PARSER] !!! INVALID SOURCE ADDRESS !!!")
+                logger.warning(f"[PARSER]   Got: {source}")
+                logger.warning(f"[PARSER]   Expected: {INTELLICHEM_ADDRESS_MIN}-{INTELLICHEM_ADDRESS_MAX}")
+            else:
+                logger.warning(f"Invalid source address: {source}")
             return None
+
+        if DEBUG_PARSER:
+            logger.info("[PARSER] Source address valid ✓")
 
         # Extract payload
         payload = Message.extract_payload(packet)
+        if DEBUG_PARSER:
+            logger.info(f"[PARSER] Payload length: {len(payload)} (expected >= {STATUS_PAYLOAD_LENGTH})")
+            logger.info(f"[PARSER] Payload hex: {payload.hex()}")
+            logger.info(f"[PARSER] Payload raw: {list(payload)}")
+
         if len(payload) < STATUS_PAYLOAD_LENGTH:
-            logger.warning(
-                f"Payload too short: {len(payload)} < {STATUS_PAYLOAD_LENGTH}"
-            )
+            if DEBUG_PARSER:
+                logger.warning(f"[PARSER] !!! PAYLOAD TOO SHORT !!!")
+            else:
+                logger.warning(
+                    f"Payload too short: {len(payload)} < {STATUS_PAYLOAD_LENGTH}"
+                )
             return None
 
-        return self._parse_payload(payload, source)
+        if DEBUG_PARSER:
+            logger.info("[PARSER] Payload length valid ✓")
+            logger.info("[PARSER] All validation passed, parsing payload...")
+
+        result = self._parse_payload(payload, source)
+
+        if DEBUG_PARSER:
+            logger.info("[PARSER] ========== PARSE COMPLETE ==========")
+            logger.info(f"[PARSER] pH: {result.ph.level:.2f} (setpoint: {result.ph.setpoint:.2f})")
+            logger.info(f"[PARSER] ORP: {result.orp.level} mV (setpoint: {result.orp.setpoint})")
+            logger.info(f"[PARSER] Temp: {result.temperature}°F, LSI: {result.lsi:.2f}")
+            logger.info(f"[PARSER] Flow: {result.flow_detected}, Comms Lost: {result.comms_lost}")
+
+        return result
 
     def _parse_payload(self, payload: bytes, address: int) -> IntelliChemState:
         """Parse the 41-byte status payload.

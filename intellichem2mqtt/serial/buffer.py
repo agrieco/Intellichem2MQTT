@@ -7,6 +7,9 @@ from ..protocol.constants import PREAMBLE
 
 logger = logging.getLogger(__name__)
 
+# Enable VERY verbose debugging
+DEBUG_BUFFER = True
+
 
 class PacketBuffer:
     """Buffer for assembling complete packets from byte stream.
@@ -56,28 +59,47 @@ class PacketBuffer:
         Returns:
             Complete packet bytes if available, None otherwise
         """
+        iteration = 0
         while True:
+            iteration += 1
+            if DEBUG_BUFFER and iteration == 1 and len(self._buffer) > 0:
+                logger.debug(f"[BUFFER] get_packet() called, buffer size: {len(self._buffer)}")
+                logger.debug(f"[BUFFER]   Contents: {bytes(self._buffer).hex()}")
+                logger.debug(f"[BUFFER]   Raw:      {list(self._buffer)}")
+
             # Find preamble
             preamble_idx = self._find_preamble()
             if preamble_idx == -1:
                 # No preamble found, keep only last 2 bytes
+                if DEBUG_BUFFER and len(self._buffer) > 2:
+                    logger.debug(f"[BUFFER] No preamble [255,0,255] found in {len(self._buffer)} bytes")
+                    logger.debug(f"[BUFFER]   Looking for: {list(PREAMBLE)}")
+                    logger.debug(f"[BUFFER]   Buffer has:  {list(self._buffer[:min(20, len(self._buffer))])}")
                 if len(self._buffer) > 2:
                     self._buffer = self._buffer[-2:]
                 return None
 
             # Discard bytes before preamble
             if preamble_idx > 0:
-                logger.debug(f"Discarding {preamble_idx} bytes before preamble")
+                if DEBUG_BUFFER:
+                    logger.debug(f"[BUFFER] Found preamble at index {preamble_idx}")
+                    logger.debug(f"[BUFFER]   Discarding {preamble_idx} bytes: {list(self._buffer[:preamble_idx])}")
                 self._buffer = self._buffer[preamble_idx:]
 
             # Need at least MIN_PACKET_SIZE bytes
             if len(self._buffer) < self.MIN_PACKET_SIZE:
+                if DEBUG_BUFFER:
+                    logger.debug(f"[BUFFER] Buffer too small: {len(self._buffer)} < {self.MIN_PACKET_SIZE}")
+                    logger.debug(f"[BUFFER]   Need more bytes, waiting...")
                 return None
 
             # Validate header start byte
             if self._buffer[3] != 165:
                 # Invalid header, skip this preamble and try again
-                logger.debug("Invalid header start byte, skipping")
+                if DEBUG_BUFFER:
+                    logger.debug(f"[BUFFER] Invalid header start byte: {self._buffer[3]} (expected 165)")
+                    logger.debug(f"[BUFFER]   Header bytes: {list(self._buffer[3:9])}")
+                    logger.debug(f"[BUFFER]   Skipping this preamble...")
                 self._buffer = self._buffer[1:]
                 continue
 
@@ -87,23 +109,53 @@ class PacketBuffer:
             # Calculate total packet length
             packet_len = 9 + payload_len + 2  # header(9) + payload + checksum(2)
 
+            if DEBUG_BUFFER:
+                logger.debug(f"[BUFFER] Valid header found:")
+                logger.debug(f"[BUFFER]   Header bytes: {list(self._buffer[3:9])}")
+                logger.debug(f"[BUFFER]   Start: {self._buffer[3]}, Sub: {self._buffer[4]}")
+                logger.debug(f"[BUFFER]   Dest: {self._buffer[5]}, Src: {self._buffer[6]}")
+                logger.debug(f"[BUFFER]   Action: {self._buffer[7]}, PayLen: {payload_len}")
+                logger.debug(f"[BUFFER]   Expected packet size: {packet_len} bytes")
+                logger.debug(f"[BUFFER]   Buffer has: {len(self._buffer)} bytes")
+
             # Wait for complete packet
             if len(self._buffer) < packet_len:
+                if DEBUG_BUFFER:
+                    logger.debug(f"[BUFFER] Incomplete packet: have {len(self._buffer)}, need {packet_len}")
+                    logger.debug(f"[BUFFER]   Missing {packet_len - len(self._buffer)} bytes")
                 return None
 
             # Extract the packet
             packet = bytes(self._buffer[:packet_len])
+
+            if DEBUG_BUFFER:
+                logger.debug(f"[BUFFER] Extracted packet for validation:")
+                logger.debug(f"[BUFFER]   Hex: {packet.hex()}")
+                logger.debug(f"[BUFFER]   Raw: {list(packet)}")
 
             # Validate checksum
             if self._validate_checksum(packet):
                 # Remove packet from buffer
                 self._buffer = self._buffer[packet_len:]
                 self._stats["packets_received"] += 1
-                logger.debug(f"Valid packet received: {packet.hex()}")
+                if DEBUG_BUFFER:
+                    logger.info(f"[BUFFER] *** VALID PACKET EXTRACTED ***")
+                    logger.debug(f"[BUFFER]   Remaining buffer: {len(self._buffer)} bytes")
                 return packet
             else:
                 # Invalid checksum, skip this preamble and try again
-                logger.debug(f"Invalid checksum, skipping: {packet.hex()}")
+                if DEBUG_BUFFER:
+                    # Calculate and show checksum details
+                    data = packet[3:-2]
+                    calculated = sum(data)
+                    received = (packet[-2] << 8) | packet[-1]
+                    logger.warning(f"[BUFFER] !!! INVALID CHECKSUM !!!")
+                    logger.warning(f"[BUFFER]   Packet: {packet.hex()}")
+                    logger.warning(f"[BUFFER]   Checksum data (bytes 3 to -2): {list(data)}")
+                    logger.warning(f"[BUFFER]   Calculated checksum: {calculated} (0x{calculated:04x})")
+                    logger.warning(f"[BUFFER]   Received checksum:   {received} (0x{received:04x})")
+                    logger.warning(f"[BUFFER]   Received bytes:      [{packet[-2]}, {packet[-1]}]")
+                    logger.warning(f"[BUFFER]   Skipping this preamble...")
                 self._stats["invalid_checksums"] += 1
                 self._buffer = self._buffer[1:]
                 continue
