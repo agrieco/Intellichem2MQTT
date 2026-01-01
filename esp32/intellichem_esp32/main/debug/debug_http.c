@@ -203,6 +203,25 @@ static esp_err_t logs_clear_handler(httpd_req_t *req)
 }
 
 /**
+ * @brief POST /reboot - Trigger system reboot
+ */
+static esp_err_t reboot_handler(httpd_req_t *req)
+{
+    ESP_LOGW(TAG, "POST /reboot - System reboot requested via HTTP");
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_send(req, "{\"status\":\"rebooting\"}", HTTPD_RESP_USE_STRLEN);
+
+    // Delay to allow response to be sent
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    esp_restart();
+
+    return ESP_OK;  // Never reached
+}
+
+/**
  * @brief GET /debug/heap - Detailed heap info
  */
 static esp_err_t heap_get_handler(httpd_req_t *req)
@@ -254,6 +273,12 @@ static const httpd_uri_t uri_heap = {
     .uri = "/debug/heap",
     .method = HTTP_GET,
     .handler = heap_get_handler,
+};
+
+static const httpd_uri_t uri_reboot = {
+    .uri = "/reboot",
+    .method = HTTP_POST,
+    .handler = reboot_handler,
 };
 
 // ============================================================================
@@ -313,11 +338,17 @@ esp_err_t debug_http_start(httpd_handle_t existing_server)
         ESP_LOGW(TAG, "Failed to register /debug/heap: %s", esp_err_to_name(ret));
     }
 
+    ret = httpd_register_uri_handler(s_server, &uri_reboot);
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to register /reboot: %s", esp_err_to_name(ret));
+    }
+
     ESP_LOGI(TAG, "Debug HTTP endpoints registered:");
     ESP_LOGI(TAG, "  GET  /debug/stats      - System statistics");
     ESP_LOGI(TAG, "  GET  /debug/logs       - Captured logs (?format=json)");
     ESP_LOGI(TAG, "  POST /debug/logs/clear - Clear log buffer");
     ESP_LOGI(TAG, "  GET  /debug/heap       - Heap info");
+    ESP_LOGI(TAG, "  POST /reboot           - Reboot device");
 
     return ESP_OK;
 }
@@ -333,6 +364,7 @@ void debug_http_stop(void)
     httpd_unregister_uri(s_server, "/debug/logs");
     httpd_unregister_uri(s_server, "/debug/logs/clear");
     httpd_unregister_uri(s_server, "/debug/heap");
+    httpd_unregister_uri(s_server, "/reboot");
 
     // Only stop server if we created it
     if (s_owns_server) {
