@@ -136,4 +136,47 @@ menu "IntelliChem2MQTT Configuration"
                 Log level for protocol components (0=None, 1=Error, 2=Warn, 3=Info, 4=Debug, 5=Verbose)
     endmenu
 
+    menu "Debug HTTP Server"
+        config DEBUG_HTTP_ENABLED
+            bool "Enable Debug HTTP Endpoints"
+            default y
+            help
+                Enable HTTP endpoints for remote debugging:
+                - /debug/stats: System statistics (JSON)
+                - /debug/logs: Captured log buffer
+                - /debug/heap: Heap memory info
+                Disable to save ~4KB RAM and reduce attack surface.
+
+        config DEBUG_LOG_BUFFER_SIZE
+            int "Log Ring Buffer Size (bytes)"
+            depends on DEBUG_HTTP_ENABLED
+            default 4096
+            range 2048 16384
+            help
+                Size of the ring buffer for captured log messages.
+                Larger buffers capture more history but use more RAM.
+                Each log entry uses ~132 bytes.
+                4096 bytes = ~30 log entries.
+
+        config DEBUG_LOG_HTTP_BUF_SIZE
+            int "HTTP Response Buffer Size"
+            depends on DEBUG_HTTP_ENABLED
+            default 8192
+            range 4096 32768
+            help
+                Maximum size of HTTP response for /debug/logs endpoint.
+                This is allocated temporarily per request.
+                Should be at least 2x LOG_BUFFER_SIZE for formatted output.
+
+        config DEBUG_HTTP_PORT
+            int "Debug HTTP Server Port"
+            depends on DEBUG_HTTP_ENABLED
+            default 80
+            range 80 65535
+            help
+                HTTP port for debug endpoints.
+                Default 80 shares port with any existing HTTP server.
+                Use a different port (e.g., 8080) for a dedicated debug server.
+    endmenu
+
 endmenu

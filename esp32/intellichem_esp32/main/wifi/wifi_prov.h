@@ -10,6 +10,7 @@
 #define WIFI_PROV_H
 
 #include "esp_err.h"
+#include "esp_http_server.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include <stdbool.h>
@@ -93,5 +94,28 @@ EventGroupHandle_t wifi_prov_get_event_group(void);
  * @return true if web config exists, false to use defaults
  */
 bool wifi_prov_get_mqtt_config(mqtt_config_t *config);
+
+/**
+ * @brief Start HTTP server for debug endpoints (in STA mode)
+ *
+ * Call this after WiFi is connected to start an HTTP server
+ * that can be used for debug endpoints. This is separate from
+ * the captive portal server used during provisioning.
+ *
+ * @return httpd_handle_t on success, NULL on failure
+ */
+httpd_handle_t wifi_prov_start_debug_server(void);
+
+/**
+ * @brief Get the debug HTTP server handle
+ *
+ * @return httpd_handle_t or NULL if not running
+ */
+httpd_handle_t wifi_prov_get_debug_server(void);
+
+/**
+ * @brief Stop the debug HTTP server
+ */
+void wifi_prov_stop_debug_server(void);
 
 #endif // WIFI_PROV_H

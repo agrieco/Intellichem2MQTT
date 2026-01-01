@@ -13,6 +13,9 @@ idf_component_register(
         "mqtt/mqtt_task.c"
         "mqtt/publisher.c"
         "mqtt/discovery.c"
+        "debug/debug_log.c"
+        "debug/debug_http.c"
+        "ota/ota_http.c"
     INCLUDE_DIRS
         "."
         "protocol"
@@ -20,12 +23,18 @@ idf_component_register(
         "serial"
         "wifi"
         "mqtt"
+        "debug"
+        "ota"
     REQUIRES
         nvs_flash
         esp_wifi
         esp_event
         esp_netif
         esp_http_server
+        esp_timer
         driver
         mqtt
+        heap
+        app_update
+        esp_app_format
 )

@@ -115,15 +115,14 @@ static esp_err_t send_packet(const uint8_t *data, size_t len)
         return ESP_ERR_INVALID_ARG;
     }
 
-    ESP_LOGI(TAG, "TX [%zu bytes] to IntelliChem 0x%02X:",
-             len, CONFIG_INTELLICHEM_ADDRESS);
+    ESP_LOGD(TAG, "TX [%zu bytes]", len);
     ESP_LOG_BUFFER_HEX_LEVEL(TAG, data, len, ESP_LOG_DEBUG);
 
     // Switch to TX mode
     rs485_set_tx_mode();
 
-    // Small delay for transceiver to switch
-    vTaskDelay(pdMS_TO_TICKS(1));
+    // Delay for transceiver to switch (some need more time)
+    vTaskDelay(pdMS_TO_TICKS(2));
 
     // Send data
     int written = uart_write_bytes(CONFIG_UART_PORT_NUM, data, len);
@@ -131,8 +130,9 @@ static esp_err_t send_packet(const uint8_t *data, size_t len)
     // Wait for TX complete
     esp_err_t ret = uart_wait_tx_done(CONFIG_UART_PORT_NUM, pdMS_TO_TICKS(100));
 
-    // Small delay before switching back to RX
-    vTaskDelay(pdMS_TO_TICKS(1));
+    // Longer delay before switching to RX - allow last bit to fully transmit
+    // At 9600 baud, one byte = ~1ms, add margin for line settling
+    vTaskDelay(pdMS_TO_TICKS(5));
 
     // Switch back to RX mode
     rs485_set_rx_mode();
@@ -151,15 +151,22 @@ static esp_err_t send_packet(const uint8_t *data, size_t len)
 
 /**
  * @brief Build and send status request
+ *
+ * The status request packet includes the action code echoed as payload,
+ * matching the Python implementation behavior.
  */
 static esp_err_t send_status_request(void)
 {
     uint8_t buf[16];
+
+    // Payload is the action code echoed (matching Python implementation)
+    uint8_t payload[] = { ACTION_STATUS_REQUEST };
+
     size_t len = message_build(buf, sizeof(buf),
                                CONFIG_INTELLICHEM_ADDRESS,
                                CONTROLLER_ADDRESS,
                                ACTION_STATUS_REQUEST,
-                               NULL, 0);
+                               payload, sizeof(payload));
 
     if (len == 0) {
         ESP_LOGE(TAG, "Failed to build status request");
@@ -183,7 +190,7 @@ static void process_uart_data(void)
                               pdMS_TO_TICKS(10));
 
     if (len > 0) {
-        ESP_LOGD(TAG, "RX [%d bytes]:", len);
+        ESP_LOGD(TAG, "RX [%d bytes]", len);
         ESP_LOG_BUFFER_HEX_LEVEL(TAG, data, len, ESP_LOG_DEBUG);
 
         buffer_add_bytes(&s_rx_buffer, data, len);
@@ -211,10 +218,19 @@ static void process_uart_data(void)
                     xSemaphoreGive(s_state_mutex);
                 }
 
-                // Send to state queue (non-blocking)
+                // Send to state queue - use xQueueOverwrite behavior
+                // If queue is full, remove oldest item first to ensure latest state is always available
                 if (s_state_queue != NULL) {
+                    // Try non-blocking send first
                     if (xQueueSend(s_state_queue, &state, 0) != pdTRUE) {
-                        ESP_LOGW(TAG, "State queue full, dropping update");
+                        // Queue full - remove oldest item and retry
+                        intellichem_state_t old_state;
+                        xQueueReceive(s_state_queue, &old_state, 0);  // Discard oldest
+                        if (xQueueSend(s_state_queue, &state, 0) != pdTRUE) {
+                            ESP_LOGW(TAG, "State queue error, dropping update");
+                        } else {
+                            ESP_LOGW(TAG, "State queue was full, replaced oldest entry");
+                        }
                     } else {
                         ESP_LOGI(TAG, "State sent to queue: pH=%.2f ORP=%.0fmV",
                                  state.ph.level, state.orp.level);

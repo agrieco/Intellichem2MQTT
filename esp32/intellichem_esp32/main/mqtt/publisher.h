@@ -156,4 +156,25 @@ esp_err_t publisher_publish_comms_restored(esp_mqtt_client_handle_t client);
 esp_err_t publisher_publish_json_state(esp_mqtt_client_handle_t client,
                                         const intellichem_state_t *state);
 
+/**
+ * @brief Publish diagnostic information for remote debugging
+ *
+ * Publishes to {prefix}/intellichem/diagnostics
+ * Includes: polls_sent, responses_received, errors, states_published, uptime, free_heap
+ *
+ * @param client MQTT client handle
+ * @param polls_sent Number of status polls sent
+ * @param responses_received Number of valid responses received
+ * @param serial_errors Number of serial errors
+ * @param states_published Number of states published to MQTT
+ * @param mqtt_reconnections Number of MQTT reconnections
+ * @return ESP_OK on success
+ */
+esp_err_t publisher_publish_diagnostics(esp_mqtt_client_handle_t client,
+                                         uint32_t polls_sent,
+                                         uint32_t responses_received,
+                                         uint32_t serial_errors,
+                                         uint32_t states_published,
+                                         uint32_t mqtt_reconnections);
+
 #endif // PUBLISHER_H

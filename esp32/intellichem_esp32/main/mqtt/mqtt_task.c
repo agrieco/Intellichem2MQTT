@@ -409,6 +409,8 @@ static void mqtt_task(void *pvParameters)
     // Main loop - receive state updates and publish
     intellichem_state_t state;
     TickType_t last_publish_time = 0;
+    TickType_t last_diagnostics_time = 0;
+    const TickType_t diagnostics_interval = pdMS_TO_TICKS(60000);  // Every 60 seconds
 
     while (s_running) {
         // Wait for state update from serial task
@@ -425,13 +427,25 @@ static void mqtt_task(void *pvParameters)
                     ESP_LOGE(TAG, "Failed to publish state: %s", esp_err_to_name(ret));
                 }
             } else {
-                ESP_LOGW(TAG, "State received but MQTT not connected");
+                ESP_LOGW(TAG, "State received but MQTT not connected (connected=%d)",
+                         s_mqtt_connected);
             }
         }
 
-        // Check for stale connection
+        // Publish diagnostics periodically for remote debugging
         if (s_mqtt_connected) {
             TickType_t now = xTaskGetTickCount();
+            if ((now - last_diagnostics_time) >= diagnostics_interval) {
+                uint32_t polls, responses, errors;
+                serial_task_get_stats(&polls, &responses, &errors);
+
+                publisher_publish_diagnostics(s_mqtt_client,
+                                               polls, responses, errors,
+                                               s_states_published, s_reconnections);
+                last_diagnostics_time = now;
+            }
+
+            // Check for stale connection
             if (last_publish_time > 0 &&
                 (now - last_publish_time) > pdMS_TO_TICKS(300000)) {  // 5 minutes
                 ESP_LOGW(TAG, "No state published for 5 minutes, checking connection...");

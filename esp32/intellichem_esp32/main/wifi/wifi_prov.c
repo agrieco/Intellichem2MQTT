@@ -60,7 +60,8 @@ static const char *TAG = "wifi_prov";
 // ============================================================================
 
 static EventGroupHandle_t s_wifi_event_group = NULL;
-static httpd_handle_t s_httpd = NULL;
+static httpd_handle_t s_httpd = NULL;           // Captive portal server
+static httpd_handle_t s_debug_httpd = NULL;     // Debug server (STA mode)
 static TaskHandle_t s_dns_task = NULL;
 static bool s_wifi_connected = false;
 static bool s_credentials_received = false;
@@ -1014,4 +1015,43 @@ bool wifi_prov_get_mqtt_config(mqtt_config_t *config)
 
     memcpy(config, &s_mqtt_config, sizeof(mqtt_config_t));
     return true;
+}
+
+httpd_handle_t wifi_prov_start_debug_server(void)
+{
+    if (s_debug_httpd != NULL) {
+        ESP_LOGW(TAG, "Debug HTTP server already running");
+        return s_debug_httpd;
+    }
+
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.server_port = 80;
+    config.max_uri_handlers = 8;    // Room for debug endpoints
+    config.max_open_sockets = 4;
+    config.lru_purge_enable = true;
+
+    ESP_LOGI(TAG, "Starting debug HTTP server on port %d", config.server_port);
+
+    esp_err_t ret = httpd_start(&s_debug_httpd, &config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start debug HTTP server: %s", esp_err_to_name(ret));
+        return NULL;
+    }
+
+    ESP_LOGI(TAG, "Debug HTTP server started");
+    return s_debug_httpd;
+}
+
+httpd_handle_t wifi_prov_get_debug_server(void)
+{
+    return s_debug_httpd;
+}
+
+void wifi_prov_stop_debug_server(void)
+{
+    if (s_debug_httpd != NULL) {
+        httpd_stop(s_debug_httpd);
+        s_debug_httpd = NULL;
+        ESP_LOGI(TAG, "Debug HTTP server stopped");
+    }
 }

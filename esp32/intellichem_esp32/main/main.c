@@ -22,6 +22,13 @@
 #include "models/state.h"
 #include "serial/serial_task.h"
 #include "mqtt/mqtt_task.h"
+#include "wifi/wifi_prov.h"
+
+#ifdef CONFIG_DEBUG_HTTP_ENABLED
+#include "debug/debug_log.h"
+#include "debug/debug_http.h"
+#include "ota/ota_http.h"
+#endif
 
 static const char *TAG = "main";
 
@@ -131,8 +138,9 @@ void app_main(void)
     ESP_LOGI(TAG, "");
 
     // Create queues
+    // Note: State queue size increased to 4 to handle delays during WiFi/MQTT connection
     ESP_LOGI(TAG, "Creating FreeRTOS queues...");
-    s_state_queue = xQueueCreate(2, sizeof(intellichem_state_t));
+    s_state_queue = xQueueCreate(4, sizeof(intellichem_state_t));
     s_command_queue = xQueueCreate(4, sizeof(serial_command_t));
 
     if (s_state_queue == NULL || s_command_queue == NULL) {
@@ -162,6 +170,33 @@ void app_main(void)
         ESP_LOGI(TAG, "MQTT task started successfully");
     }
 
+#ifdef CONFIG_DEBUG_HTTP_ENABLED
+    // Initialize debug log capture
+    ESP_LOGI(TAG, "Initializing debug logging...");
+    ret = debug_log_init();
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Debug log init failed: %s", esp_err_to_name(ret));
+    }
+
+    // Start debug HTTP server
+    ESP_LOGI(TAG, "Starting debug HTTP server...");
+    httpd_handle_t debug_server = wifi_prov_start_debug_server();
+    if (debug_server != NULL) {
+        ret = debug_http_start(debug_server);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "Debug HTTP handlers failed: %s", esp_err_to_name(ret));
+        }
+
+        // Register OTA update handlers
+        ret = ota_http_register_handlers(debug_server);
+        if (ret != ESP_OK) {
+            ESP_LOGW(TAG, "OTA HTTP handlers failed: %s", esp_err_to_name(ret));
+        }
+    } else {
+        ESP_LOGW(TAG, "Could not start debug HTTP server");
+    }
+#endif
+
     ESP_LOGI(TAG, "========================================");
     ESP_LOGI(TAG, "System initialized, waiting for data...");
     ESP_LOGI(TAG, "========================================");
@@ -175,6 +210,11 @@ void app_main(void)
     ESP_LOGI(TAG, "  RS-485 DE pin: %d", CONFIG_RS485_DE_PIN);
     ESP_LOGI(TAG, "  WiFi/MQTT: Configured via web provisioning");
     ESP_LOGI(TAG, "  Control enabled: %s", CONFIG_CONTROL_ENABLED ? "yes" : "no");
+#ifdef CONFIG_DEBUG_HTTP_ENABLED
+    ESP_LOGI(TAG, "  Debug HTTP: http://<device-ip>/debug/stats");
+    ESP_LOGI(TAG, "              http://<device-ip>/debug/logs");
+    ESP_LOGI(TAG, "  OTA Update: http://<device-ip>/ota");
+#endif
     ESP_LOGI(TAG, "");
 
     // Main loop - just keep running
