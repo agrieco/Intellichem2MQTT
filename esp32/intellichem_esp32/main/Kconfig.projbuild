@@ -150,7 +150,7 @@ menu "IntelliChem2MQTT Configuration"
         config DEBUG_LOG_BUFFER_SIZE
             int "Log Ring Buffer Size (bytes)"
             depends on DEBUG_HTTP_ENABLED
-            default 4096
+            default 8192
             range 2048 16384
             help
                 Size of the ring buffer for captured log messages.
