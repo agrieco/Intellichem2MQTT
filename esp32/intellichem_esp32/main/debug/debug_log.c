@@ -283,6 +283,8 @@ void debug_log_get_stats(debug_log_stats_t *stats)
 
 size_t debug_log_read_plain(char *buf, size_t buf_size)
 {
+    static const char level_chars[] = "?EWID V";  // Index by esp_log_level_t
+
     if (!buf || buf_size == 0) {
         return 0;
     }
@@ -303,10 +305,25 @@ size_t debug_log_read_plain(char *buf, size_t buf_size)
             uint16_t idx = (start_idx + i) % s_capacity;
             debug_log_entry_t *entry = &s_entries[idx];
 
+            // Convert ms to HH:MM:SS.mmm format
+            uint32_t ms = entry->timestamp_ms;
+            uint32_t total_sec = ms / 1000;
+            uint32_t hours = total_sec / 3600;
+            uint32_t mins = (total_sec % 3600) / 60;
+            uint32_t secs = total_sec % 60;
+            uint32_t millis = ms % 1000;
+
+            // Get level char safely
+            char level_char = (entry->level < sizeof(level_chars)) ?
+                              level_chars[entry->level] : '?';
+
             int n = snprintf(buf + written, buf_size - written,
-                             "[%8lu] %c %-12s: %s\n",
-                             (unsigned long)entry->timestamp_ms,
-                             debug_log_level_char(entry->level),
+                             "[%02lu:%02lu:%02lu.%03lu] %c %-12s: %s\n",
+                             (unsigned long)hours,
+                             (unsigned long)mins,
+                             (unsigned long)secs,
+                             (unsigned long)millis,
+                             level_char,
                              entry->tag,
                              entry->message);
 
@@ -323,6 +340,8 @@ size_t debug_log_read_plain(char *buf, size_t buf_size)
 
 size_t debug_log_read_json(char *buf, size_t buf_size)
 {
+    static const char level_chars[] = "?EWID V";  // Index by esp_log_level_t
+
     if (!buf || buf_size == 0) {
         return 0;
     }
@@ -341,7 +360,7 @@ size_t debug_log_read_json(char *buf, size_t buf_size)
         uint16_t start_idx = (s_head + s_capacity - s_count) % s_capacity;
         bool first = true;
 
-        for (uint16_t i = 0; i < s_count && written < buf_size - 150; i++) {
+        for (uint16_t i = 0; i < s_count && written < buf_size - 200; i++) {
             uint16_t idx = (start_idx + i) % s_capacity;
             debug_log_entry_t *entry = &s_entries[idx];
 
@@ -355,11 +374,26 @@ size_t debug_log_read_json(char *buf, size_t buf_size)
                 if (*p < 32) *p = ' ';  // Replace control chars
             }
 
+            // Convert ms to HH:MM:SS.mmm format
+            uint32_t ms = entry->timestamp_ms;
+            uint32_t total_sec = ms / 1000;
+            uint32_t hours = total_sec / 3600;
+            uint32_t mins = (total_sec % 3600) / 60;
+            uint32_t secs = total_sec % 60;
+            uint32_t millis = ms % 1000;
+
+            // Get level char safely
+            char level_char = (entry->level < sizeof(level_chars)) ?
+                              level_chars[entry->level] : '?';
+
             int n = snprintf(buf + written, buf_size - written,
-                             "%s{\"ts\":%lu,\"level\":\"%c\",\"tag\":\"%s\",\"msg\":\"%s\"}",
+                             "%s{\"time\":\"%02lu:%02lu:%02lu.%03lu\",\"level\":\"%c\",\"tag\":\"%s\",\"msg\":\"%s\"}",
                              first ? "" : ",",
-                             (unsigned long)entry->timestamp_ms,
-                             debug_log_level_char(entry->level),
+                             (unsigned long)hours,
+                             (unsigned long)mins,
+                             (unsigned long)secs,
+                             (unsigned long)millis,
+                             level_char,
                              entry->tag,
                              escaped_msg);
 
