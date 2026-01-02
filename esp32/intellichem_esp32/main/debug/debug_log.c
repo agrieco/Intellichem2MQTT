@@ -51,6 +51,37 @@ static vprintf_like_t s_original_vprintf = NULL;
 // ============================================================================
 
 /**
+ * @brief Strip ANSI escape codes from a string in-place
+ *
+ * ANSI codes follow pattern: ESC [ <params> m
+ * Where ESC is 0x1B, params are digits/semicolons
+ */
+static void strip_ansi_codes(char *str)
+{
+    if (!str) return;
+
+    char *read = str;
+    char *write = str;
+
+    while (*read) {
+        if (*read == '\033' && *(read + 1) == '[') {
+            // Skip ESC [
+            read += 2;
+            // Skip until 'm' or end of string
+            while (*read && *read != 'm') {
+                read++;
+            }
+            if (*read == 'm') {
+                read++;  // Skip the 'm'
+            }
+        } else {
+            *write++ = *read++;
+        }
+    }
+    *write = '\0';
+}
+
+/**
  * @brief Parse ESP_LOG format string to extract components
  *
  * ESP_LOG format: "X (%u) %s: %s\n" or similar
@@ -144,6 +175,9 @@ static int debug_log_vprintf(const char *fmt, va_list args)
         // Format the log message
         char line[256];
         vsnprintf(line, sizeof(line), fmt, args);
+
+        // Strip ANSI color codes before parsing
+        strip_ansi_codes(line);
 
         // Try to acquire mutex with short timeout
         if (xSemaphoreTake(s_mutex, pdMS_TO_TICKS(LOG_MUTEX_TIMEOUT_MS)) == pdTRUE) {
