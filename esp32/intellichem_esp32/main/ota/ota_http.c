@@ -91,13 +91,21 @@ static esp_err_t ota_page_handler(httpd_req_t *req)
     const esp_app_desc_t *app_desc = esp_app_get_description();
     const esp_partition_t *running = esp_ota_get_running_partition();
 
-    char response[sizeof(OTA_HTML_PAGE) + 128];
-    int len = snprintf(response, sizeof(response), OTA_HTML_PAGE,
+    // Allocate on heap - httpd task has limited stack
+    size_t buf_size = sizeof(OTA_HTML_PAGE) + 128;
+    char *response = malloc(buf_size);
+    if (!response) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_FAIL;
+    }
+
+    int len = snprintf(response, buf_size, OTA_HTML_PAGE,
                        app_desc->version,
                        running->label);
 
     httpd_resp_set_type(req, "text/html");
     httpd_resp_send(req, response, len);
+    free(response);
     return ESP_OK;
 }
 
